@@ -7,7 +7,7 @@
   "icon": "images/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AlfMueller/alfs-ftp-plugin"
+    "url": "https://github.com/AlfMueller/ftp-plugin-vscode"
   },
   "engines": {
     "vscode": "^1.86.0"
