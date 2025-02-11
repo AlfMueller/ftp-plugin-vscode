@@ -1,0 +1,14 @@
+{
+    "host": "ftp.example.com",
+    "username": "your_username",
+    "password": "your_password",
+    "remoteDirectory": "/public_html",
+    "secure": false,
+    "display": {
+        "mode": "timestamp"
+    },
+    "autoActions": {
+        "uploadOnClick": false,
+        "downloadOnClick": false
+    }
+} 

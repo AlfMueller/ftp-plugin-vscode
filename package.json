@@ -1,0 +1,274 @@
+{
+  "name": "alfsftpplugin",
+  "displayName": "Alfs FTP Plugin",
+  "description": "FTP Plugin for easy file upload and download",
+  "version": "0.0.5",
+  "publisher": "purecrea",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlfMueller/alfs-ftp-plugin"
+  },
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers",
+    "FTP"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:alfsftpplugin.uploadFile",
+    "onCommand:alfsftpplugin.downloadFile",
+    "onCommand:alfsftpplugin.configure"
+  ],
+  "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ftp-explorer",
+          "title": "FTP Explorer",
+          "icon": "$(cloud)"
+        }
+      ]
+    },
+    "views": {
+      "ftp-explorer": [
+        {
+          "id": "ftpExplorer",
+          "name": "FTP Files",
+          "icon": "$(cloud)",
+          "contextualTitle": "FTP Explorer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "alfsftpplugin.uploadFile",
+        "title": "FTP: Upload File",
+        "category": "FTP",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "alfsftpplugin.downloadFile",
+        "title": "FTP: Download File",
+        "category": "FTP",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "alfsftpplugin.configure",
+        "title": "FTP: Configure Settings",
+        "category": "FTP",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "alfsftpplugin.refreshFtpView",
+        "title": "FTP: Ansicht aktualisieren",
+        "category": "FTP",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "alfsftpplugin.downloadFileFromExplorer",
+        "title": "FTP: Datei herunterladen",
+        "category": "FTP",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "alfsftpplugin.uploadToFolder",
+        "title": "FTP: In Ordner hochladen",
+        "category": "FTP",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "alfsftpplugin.uploadNewerFile",
+        "title": "FTP: Neuere Datei hochladen",
+        "category": "FTP",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "alfsftpplugin.createFile",
+        "title": "FTP: Neue Datei erstellen",
+        "category": "FTP",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "alfsftpplugin.createFolder",
+        "title": "FTP: Neuen Ordner erstellen",
+        "category": "FTP",
+        "icon": "$(new-folder)"
+      }
+    ],
+    "configuration": {
+      "title": "Alfs FTP Plugin",
+      "properties": {
+        "alfsFtp.host": {
+          "type": "string",
+          "default": "",
+          "description": "FTP server host"
+        },
+        "alfsFtp.username": {
+          "type": "string",
+          "default": "",
+          "description": "FTP username"
+        },
+        "alfsFtp.password": {
+          "type": "string",
+          "default": "",
+          "description": "FTP password"
+        },
+        "alfsFtp.remoteDirectory": {
+          "type": "string",
+          "default": "/",
+          "description": "Default remote directory"
+        },
+        "alfsFtp.autoUploadOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically upload files on save"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "alfsftpplugin.uploadFile",
+        "key": "ctrl+alt+u",
+        "mac": "cmd+alt+u",
+        "when": "editorFocus"
+      },
+      {
+        "command": "alfsftpplugin.downloadFile",
+        "key": "ctrl+alt+d",
+        "mac": "cmd+alt+d"
+      },
+      {
+        "command": "alfsftpplugin.configure",
+        "key": "ctrl+alt+c",
+        "mac": "cmd+alt+c"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "alfsftpplugin.uploadFile",
+          "group": "navigation",
+          "when": "editorFocus"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "alfsftpplugin.uploadFile",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "alfsftpplugin.uploadFile",
+          "group": "FTP"
+        },
+        {
+          "command": "alfsftpplugin.downloadFile",
+          "group": "FTP"
+        },
+        {
+          "command": "alfsftpplugin.configure",
+          "group": "FTP"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "alfsftpplugin.refreshFtpView",
+          "when": "view == ftpExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "alfsftpplugin.createFile",
+          "when": "view == ftpExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "alfsftpplugin.createFolder",
+          "when": "view == ftpExplorer",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "alfsftpplugin.downloadFileFromExplorer",
+          "when": "view == ftpExplorer",
+          "group": "inline@1"
+        },
+        {
+          "command": "alfsftpplugin.uploadNewerFile",
+          "when": "view == ftpExplorer",
+          "group": "inline@0"
+        },
+        {
+          "command": "alfsftpplugin.createFile",
+          "when": "view == ftpExplorer && viewItem == directory",
+          "group": "1_creation@1"
+        },
+        {
+          "command": "alfsftpplugin.createFolder",
+          "when": "view == ftpExplorer && viewItem == directory",
+          "group": "1_creation@2"
+        }
+      ]
+    },
+    "colors": [
+      {
+        "id": "ftpPlugin.uploadIcon",
+        "description": "Color for the upload icon",
+        "defaults": {
+          "dark": "#ff6b6b",
+          "light": "#ff4040",
+          "highContrast": "#ff0000"
+        }
+      },
+      {
+        "id": "ftpPlugin.downloadIcon",
+        "description": "Color for the download icon",
+        "defaults": {
+          "dark": "#4dabf7",
+          "light": "#228be6",
+          "highContrast": "#0066cc"
+        }
+      },
+      {
+        "id": "ftpPlugin.newerFile",
+        "description": "Color for files that are newer locally",
+        "defaults": {
+          "dark": "#0098fa",
+          "light": "#0098fa",
+          "highContrast": "#0098fa"
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@types/vscode": "^1.86.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "@typescript-eslint/parser": "^6.19.1",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "basic-ftp": "^5.0.5"
+  }
+}
