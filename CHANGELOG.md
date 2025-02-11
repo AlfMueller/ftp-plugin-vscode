@@ -4,6 +4,12 @@ All notable changes to the "alfsftpplugin" extension will be documented in this 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.6] - 2024-02-11
+
+### Changed
+- Fixed repository URL in package.json
+- Updated documentation links
+
 ## [0.0.5] - 2024-02-11
 
 ### Changed
