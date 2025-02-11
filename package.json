@@ -2,7 +2,7 @@
   "name": "alfsftpplugin",
   "displayName": "Alfs FTP Plugin",
   "description": "FTP Plugin for easy file upload and download",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publisher": "purecrea",
   "icon": "images/icon.png",
   "repository": {
