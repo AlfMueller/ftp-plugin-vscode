@@ -31,7 +31,8 @@ Open `ftp-settings.json` and adjust the following settings:
     "remoteDirectory": "/public_html",
     "secure": false,
     "display": {
-        "mode": "timestamp"
+        "mode": "timestamp",
+        "timestampFormat": "EU"
     },
     "autoActions": {
         "uploadOnClick": true,
@@ -48,6 +49,7 @@ The settings explained:
 - `remoteDirectory`: Default directory on server (optional)
 - `secure`: Enable FTPS (optional, default: false)
 - `display.mode`: View mode ("timestamp", "bytes", or "none")
+- `display.timestampFormat`: Date format ("EU" for DD.MM.YYYY HH:mm:ss, "US" for MM/DD/YYYY hh:mm:ss AM/PM)
 - `autoActions`: Configure automatic actions on click
 
 ### 3. Security Notes
@@ -78,6 +80,7 @@ This prevents your FTP credentials from accidentally being added to version cont
 | remoteDirectory | No | Default directory on server |
 | secure | No | Enable FTPS (default: false) |
 | display.mode | No | View mode (timestamp/bytes/none) |
+| display.timestampFormat | No | Date format (EU/US) |
 | autoActions.uploadOnClick | No | Auto-upload newer files |
 | autoActions.downloadOnClick | No | Auto-download files |
 

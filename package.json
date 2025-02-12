@@ -2,7 +2,7 @@
   "name": "alfsftpplugin",
   "displayName": "Alfs FTP Plugin",
   "description": "FTP Plugin for easy file upload and download",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "publisher": "purecrea",
   "icon": "images/icon.png",
   "repository": {
@@ -267,6 +267,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
+    "@types/ssh2": "^1.15.4",
     "@types/vscode": "^1.86.0",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "@typescript-eslint/parser": "^6.19.1",
@@ -274,6 +275,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "basic-ftp": "^5.0.5"
+    "basic-ftp": "^5.0.5",
+    "ssh2": "^1.16.0"
   }
 }

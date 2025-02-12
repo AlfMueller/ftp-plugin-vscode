@@ -4,6 +4,18 @@ All notable changes to the "alfsftpplugin" extension will be documented in this 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.9] - 2024-02-13
+
+### Added
+- Support for configurable timestamp formats (EU/US)
+- Enhanced SFTP connection handling
+- Improved remote directory path handling
+
+### Changed
+- Fixed infinite loop in connection handling
+- Optimized client reuse
+- Enhanced debug output for connection status
+
 ## [0.0.8] - 2024-02-12
 
 ### Added

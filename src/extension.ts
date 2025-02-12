@@ -2,10 +2,13 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as ftp from 'basic-ftp';
+import * as ssh2 from 'ssh2';
 import * as path from 'path';
 import * as fs from 'fs';
 
 let ftpClient: ftp.Client | undefined;
+let sftpClient: ssh2.Client | undefined;
+let outputChannel: vscode.OutputChannel;
 
 // Globale Variable für die Entscheidung "Für alle übernehmen"
 let globalDownloadChoice: string | undefined;
@@ -19,6 +22,7 @@ interface FtpSettings {
 	secure?: boolean;
 	display?: {
 		mode: 'timestamp' | 'bytes' | 'none';
+		timestampFormat?: 'US' | 'EU';
 	};
 	autoActions?: {
 		uploadOnClick: boolean;
@@ -69,17 +73,21 @@ interface FtpItem {
 class FtpExplorerProvider implements vscode.TreeDataProvider<FtpItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<FtpItem | undefined | null | void> = new vscode.EventEmitter<FtpItem | undefined | null | void>();
 	readonly onDidChangeTreeData: vscode.Event<FtpItem | undefined | null | void> = this._onDidChangeTreeData.event;
+	private lastRefreshTime: number = 0;
+	private refreshDebounceTime: number = 1000; // 1 Sekunde Verzögerung
 
-	constructor(private ftpClientProvider: () => Promise<ftp.Client>) {
-		// Entferne den Timer-Code
-	}
+	constructor(private ftpClientProvider: () => Promise<ftp.Client>) {}
 
 	dispose() {
 		// Leere dispose-Methode für die Implementierung des Interface
 	}
 
 	refresh(): void {
-		this._onDidChangeTreeData.fire();
+		const now = Date.now();
+		if (now - this.lastRefreshTime > this.refreshDebounceTime) {
+			this.lastRefreshTime = now;
+			this._onDidChangeTreeData.fire();
+		}
 	}
 
 	async checkIfLocalNewer(localPath: string, remoteModTime: Date | undefined): Promise<boolean> {
@@ -93,6 +101,45 @@ class FtpExplorerProvider implements vscode.TreeDataProvider<FtpItem> {
 		} catch (error) {
 			console.error('Fehler beim Prüfen der Zeitstempel:', error);
 			return false;
+		}
+	}
+
+	private async getItemDescription(item: FtpItem, displayMode: string): Promise<string> {
+		switch (displayMode) {
+			case 'timestamp':
+				if (item.modifiedTime) {
+					const settings = await loadFtpSettings();
+					const format = settings?.display?.timestampFormat || 'EU';
+					
+					if (format === 'US') {
+						return item.modifiedTime.toLocaleString('en-US', {
+							year: 'numeric',
+							month: '2-digit',
+							day: '2-digit',
+							hour: '2-digit',
+							minute: '2-digit',
+							second: '2-digit',
+							hour12: true
+						});
+					} else {
+						return item.modifiedTime.toLocaleString('de-DE', {
+							year: 'numeric',
+							month: '2-digit',
+							day: '2-digit',
+							hour: '2-digit',
+							minute: '2-digit',
+							second: '2-digit',
+							hour12: false
+						});
+					}
+				}
+				return '';
+			case 'bytes':
+				return item.size ? `${item.size} bytes` : '';
+			case 'none':
+				return '';
+			default:
+				return item.modifiedTime ? item.modifiedTime.toLocaleString() : '';
 		}
 	}
 
@@ -112,10 +159,8 @@ class FtpExplorerProvider implements vscode.TreeDataProvider<FtpItem> {
 			const displayMode = settings?.display?.mode || 'timestamp';
 
 			if (element.isNewer) {
-				// Blaues Icon für neuere Dateien
 				treeItem.iconPath = new vscode.ThemeIcon(themeIcon, new vscode.ThemeColor('ftpPlugin.newerFile'));
-				treeItem.description = this.getItemDescription(element, displayMode) + ' (Lokal neuer)';
-				// Für neuere Dateien Upload statt Download
+				treeItem.description = await this.getItemDescription(element, displayMode) + ' (Lokal neuer)';
 				if (settings?.autoActions?.uploadOnClick) {
 					treeItem.command = {
 						command: 'alfsftpplugin.uploadNewerFile',
@@ -123,7 +168,6 @@ class FtpExplorerProvider implements vscode.TreeDataProvider<FtpItem> {
 						arguments: [element]
 					};
 				} else if (!element.isDirectory) {
-					// Wenn autoActions deaktiviert ist, öffne die Datei bei Doppelklick
 					const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 					if (workspaceFolder) {
 						const config = vscode.workspace.getConfiguration('alfsFtp');
@@ -144,8 +188,7 @@ class FtpExplorerProvider implements vscode.TreeDataProvider<FtpItem> {
 				}
 			} else {
 				treeItem.iconPath = new vscode.ThemeIcon(themeIcon);
-				treeItem.description = this.getItemDescription(element, displayMode);
-				// Standard Download für normale Dateien
+				treeItem.description = await this.getItemDescription(element, displayMode);
 				if (!element.isDirectory && settings?.autoActions?.downloadOnClick) {
 					treeItem.command = {
 						command: 'alfsftpplugin.downloadFileFromExplorer',
@@ -153,7 +196,6 @@ class FtpExplorerProvider implements vscode.TreeDataProvider<FtpItem> {
 						arguments: [element]
 					};
 				} else if (!element.isDirectory) {
-					// Wenn autoActions deaktiviert ist, öffne die Datei bei Doppelklick
 					const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 					if (workspaceFolder) {
 						const config = vscode.workspace.getConfiguration('alfsFtp');
@@ -181,25 +223,8 @@ class FtpExplorerProvider implements vscode.TreeDataProvider<FtpItem> {
 		return treeItem;
 	}
 
-	private getItemDescription(item: FtpItem, displayMode: string): string {
-		switch (displayMode) {
-			case 'timestamp':
-				return item.modifiedTime ? item.modifiedTime.toLocaleString() : '';
-			case 'bytes':
-				return item.size ? `${item.size} bytes` : '';
-			case 'none':
-				return '';
-			default:
-				return item.modifiedTime ? item.modifiedTime.toLocaleString() : '';
-		}
-	}
-
 	async getChildren(element?: FtpItem): Promise<FtpItem[]> {
 		try {
-			const client = await this.ftpClientProvider();
-			const config = vscode.workspace.getConfiguration('alfsFtp');
-			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-			
 			// Wenn kein Element ausgewählt ist, zeige Root-Ordner
 			if (!element) {
 				return [{
@@ -209,6 +234,11 @@ class FtpExplorerProvider implements vscode.TreeDataProvider<FtpItem> {
 					isRoot: true
 				}];
 			}
+
+			// Hole den Client nur, wenn wir tatsächlich Dateien auflisten müssen
+			const client = await this.ftpClientProvider();
+			const config = vscode.workspace.getConfiguration('alfsFtp');
+			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 			
 			let currentPath: string;
 			if (element.isRoot) {
@@ -217,7 +247,10 @@ class FtpExplorerProvider implements vscode.TreeDataProvider<FtpItem> {
 				currentPath = element.path;
 			}
 
+			outputChannel.appendLine(`Liste Verzeichnis: ${currentPath}`);
 			const list = await client.list(currentPath);
+			outputChannel.appendLine(`${list.length} Einträge gefunden`);
+
 			const items = await Promise.all(list.map(async item => {
 				const remotePath = path.posix.join(currentPath, item.name);
 				let localPath = '';
@@ -251,9 +284,179 @@ class FtpExplorerProvider implements vscode.TreeDataProvider<FtpItem> {
 	}
 }
 
+class SftpWrapper extends ftp.Client {
+	private sftp: ssh2.SFTPWrapper;
+	private currentPath: string = '/';
+	private remoteRoot: string;
+
+	constructor(sftp: ssh2.SFTPWrapper, initialPath: string = '/') {
+		super();
+		this.sftp = sftp;
+		this.remoteRoot = initialPath.endsWith('/') ? initialPath : `${initialPath}/`;
+		this.currentPath = this.remoteRoot;
+		outputChannel.appendLine(`SftpWrapper initialisiert mit Root-Pfad: ${this.remoteRoot}`);
+		outputChannel.appendLine(`Aktueller Pfad: ${this.currentPath}`);
+	}
+
+	async list(path: string = '.'): Promise<ftp.FileInfo[]> {
+		return new Promise((resolve, reject) => {
+			// Normalisiere den Pfad
+			let fullPath: string;
+			if (path === '.' || path === './') {
+				fullPath = this.currentPath;
+			} else if (path === '/') {
+				fullPath = this.remoteRoot;
+			} else if (path.startsWith('/')) {
+				// Wenn der Pfad absolut ist, füge den Remote-Root hinzu
+				const relativePath = path.startsWith(this.remoteRoot) ? 
+					path : 
+					path.replace(/^\//, '');
+				fullPath = path.startsWith(this.remoteRoot) ? 
+					path : 
+					`${this.remoteRoot}${relativePath}`;
+			} else {
+				// Relativer Pfad, füge zum aktuellen Pfad hinzu
+				fullPath = path.startsWith('./') ? 
+					`${this.currentPath}${path.slice(2)}` : 
+					`${this.currentPath}${path}`;
+			}
+
+			// Entferne doppelte Slashes und normalisiere den Pfad
+			fullPath = fullPath.replace(/\/+/g, '/');
+			outputChannel.appendLine(`Liste Verzeichnis (normalisiert): ${fullPath}`);
+			outputChannel.appendLine(`Remote Root: ${this.remoteRoot}`);
+			outputChannel.appendLine(`Aktueller Pfad: ${this.currentPath}`);
+			
+			this.sftp.readdir(fullPath, (err, list) => {
+				if (err) {
+					outputChannel.appendLine(`Fehler beim Lesen des Verzeichnisses: ${err.message}`);
+					reject(err);
+					return;
+				}
+				resolve(list.map(item => {
+					const isDirectory = item.attrs.isDirectory();
+					const modDate = new Date(item.attrs.mtime * 1000);
+					return {
+						name: item.filename,
+						type: isDirectory ? 2 : 1,
+						size: item.attrs.size,
+						modifiedAt: modDate,
+						rawModifiedAt: modDate.toISOString(),
+						isDirectory: isDirectory,
+						isSymbolicLink: false,
+						isFile: !isDirectory,
+						date: modDate.toISOString()
+					} as ftp.FileInfo;
+				}));
+			});
+		});
+	}
+
+	async cd(path: string): Promise<ftp.FTPResponse> {
+		return new Promise((resolve, reject) => {
+			// Normalisiere den Pfad
+			if (path.startsWith('/')) {
+				// Wenn der Pfad absolut ist, füge den Remote-Root hinzu
+				const relativePath = path.startsWith(this.remoteRoot) ? 
+					path : 
+					path.replace(/^\//, '');
+				this.currentPath = path.startsWith(this.remoteRoot) ? 
+					path : 
+					`${this.remoteRoot}${relativePath}`;
+			} else {
+				// Relativer Pfad, füge zum aktuellen Pfad hinzu
+				this.currentPath = `${this.currentPath}${path}/`.replace(/\/+/g, '/');
+			}
+			
+			// Stelle sicher, dass der Pfad mit / endet
+			this.currentPath = this.currentPath.endsWith('/') ? this.currentPath : `${this.currentPath}/`;
+			
+			outputChannel.appendLine(`Wechsle zu Verzeichnis: ${this.currentPath}`);
+			outputChannel.appendLine(`Remote Root: ${this.remoteRoot}`);
+			
+			// Prüfe, ob das Verzeichnis existiert
+			this.sftp.realpath(this.currentPath, (err, resolvedPath) => {
+				if (err) {
+					outputChannel.appendLine(`Fehler beim Wechseln des Verzeichnisses: ${err.message}`);
+					reject(err);
+					return;
+				}
+				outputChannel.appendLine(`Verzeichnis aufgelöst zu: ${resolvedPath}`);
+				this.currentPath = resolvedPath.endsWith('/') ? resolvedPath : `${resolvedPath}/`;
+				resolve({ code: 250, message: "Directory changed successfully" });
+			});
+		});
+	}
+
+	async uploadFrom(source: string | NodeJS.ReadableStream, toRemotePath: string, options?: ftp.UploadOptions): Promise<ftp.FTPResponse> {
+		return new Promise((resolve, reject) => {
+			try {
+				const readStream = typeof source === 'string' ? fs.createReadStream(source) : source;
+				const writeStream = this.sftp.createWriteStream(toRemotePath);
+				
+				writeStream.on('close', () => {
+					resolve({ code: 226, message: "Transfer complete" });
+				});
+				
+				writeStream.on('error', (err: Error) => {
+					reject(err);
+				});
+				
+				readStream.pipe(writeStream);
+			} catch (err) {
+				reject(err);
+			}
+		});
+	}
+
+	async downloadTo(destination: string | NodeJS.WritableStream, fromRemotePath: string, startAt?: number): Promise<ftp.FTPResponse> {
+		return new Promise((resolve, reject) => {
+			try {
+				const readStream = this.sftp.createReadStream(fromRemotePath, startAt ? { start: startAt } : undefined);
+				const writeStream = typeof destination === 'string' ? fs.createWriteStream(destination) : destination;
+				
+				writeStream.on('close', () => {
+					resolve({ code: 226, message: "Transfer complete" });
+				});
+				
+				writeStream.on('error', (err: Error) => {
+					reject(err);
+				});
+				
+				readStream.pipe(writeStream);
+			} catch (err) {
+				reject(err);
+			}
+		});
+	}
+
+	async ensureDir(remotePath: string): Promise<void> {
+		return new Promise((resolve, reject) => {
+			this.sftp.mkdir(remotePath, (err) => {
+				if (err) {
+					// Ignoriere EEXIST Fehler
+					if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
+						resolve();
+						return;
+					}
+					reject(err);
+					return;
+				}
+				resolve();
+			});
+		});
+	}
+}
+
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+	// Erstelle Output Channel
+	outputChannel = vscode.window.createOutputChannel('Alfs FTP Plugin');
+	outputChannel.show();
+	
+	outputChannel.appendLine('Aktiviere Alfs FTP Plugin...');
+	
 	// Debug-Logging
 	console.log('Activating Alfs FTP Plugin...');
 	
@@ -261,20 +464,36 @@ export function activate(context: vscode.ExtensionContext) {
 	vscode.commands.executeCommand('setContext', 'alfsftpplugin.enabled', true);
 
 	async function getFtpClient(): Promise<ftp.Client> {
-		console.log('Getting FTP client...');
+		// Wenn bereits ein Client existiert und verbunden ist, verwende diesen
+		if (ftpClient) {
+			outputChannel.appendLine('Verwende existierenden FTP-Client...');
+			return ftpClient;
+		}
+
+		outputChannel.appendLine('Versuche FTP-Client zu erstellen...');
 		
 		// Versuche zuerst die JSON-Einstellungen zu laden
 		const jsonSettings = await loadFtpSettings();
+		
+		outputChannel.appendLine(`Verbindungseinstellungen: 
+			Host: ${jsonSettings?.host}
+			Port: ${jsonSettings?.port || 21}
+			Secure: ${jsonSettings?.secure}
+			Username: ${jsonSettings?.username}
+			Remote Directory: ${jsonSettings?.remoteDirectory}
+		`);
 		
 		let host: string, port: number, username: string, password: string, remoteDirectory: string | undefined;
 		
 		if (jsonSettings) {
 			// Verwende die JSON-Einstellungen
 			host = jsonSettings.host;
-			port = jsonSettings.port || 21; // Standard-Port 21 für FTP
+			port = jsonSettings.port || 21;
 			username = jsonSettings.username;
 			password = jsonSettings.password;
 			remoteDirectory = jsonSettings.remoteDirectory;
+			
+			console.log('Using JSON settings with host:', host, 'port:', port);
 			
 			// Aktualisiere auch die VS Code-Einstellungen für die Kompatibilität
 			const config = vscode.workspace.getConfiguration('alfsFtp');
@@ -299,16 +518,85 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}
 
-		if (!ftpClient) {
-			ftpClient = new ftp.Client();
-			ftpClient.ftp.verbose = true;
-			await ftpClient.access({
-				host,
-				port,
-				user: username,
-				password,
-				secure: jsonSettings?.secure ?? false
+		// Prüfe, ob SFTP verwendet werden soll (Port 22)
+		if (port === 22) {
+			outputChannel.appendLine('SFTP-Verbindung wird verwendet (Port 22)...');
+			
+			// Schließe vorhandene Verbindungen
+			if (sftpClient) {
+				sftpClient.end();
+				sftpClient = undefined;
+			}
+			if (ftpClient) {
+				(ftpClient as ftp.Client).close();
+				ftpClient = undefined;
+			}
+			
+			return new Promise((resolve, reject) => {
+				outputChannel.appendLine('Erstelle neue SFTP-Verbindung...');
+				sftpClient = new ssh2.Client();
+				sftpClient
+					.on('ready', () => {
+						outputChannel.appendLine('SSH-Verbindung hergestellt, fordere SFTP an...');
+						sftpClient!.sftp((err, sftp) => {
+							if (err) {
+								outputChannel.appendLine(`SFTP-Anfrage fehlgeschlagen: ${err.message}`);
+								reject(err);
+								return;
+							}
+							outputChannel.appendLine('SFTP-Verbindung erfolgreich hergestellt');
+							ftpClient = new SftpWrapper(sftp, remoteDirectory || '/');
+							resolve(ftpClient);
+						});
+					})
+					.on('error', (err) => {
+						outputChannel.appendLine(`SSH-Verbindungsfehler: ${err.message}`);
+						sftpClient = undefined;
+						ftpClient = undefined;
+						reject(err);
+					})
+					.on('end', () => {
+						outputChannel.appendLine('SSH-Verbindung beendet');
+						sftpClient = undefined;
+						ftpClient = undefined;
+					})
+					.on('close', () => {
+						outputChannel.appendLine('SSH-Verbindung geschlossen');
+						sftpClient = undefined;
+						ftpClient = undefined;
+					})
+					.connect({
+						host,
+						port,
+						username,
+						password,
+						debug: (debug) => {
+							outputChannel.appendLine(`SSH Debug: ${debug}`);
+						}
+					});
 			});
+		}
+
+		// Standard FTP/FTPS Verbindung
+		// Schließe vorhandene Verbindung
+		if (ftpClient) {
+			(ftpClient as ftp.Client).close();
+			ftpClient = undefined;
+		}
+		
+		ftpClient = new ftp.Client();
+		ftpClient.ftp.verbose = true;
+		await ftpClient.access({
+			host,
+			port,
+			user: username,
+			password,
+			secure: jsonSettings?.secure ?? false
+		});
+		
+		// Wechsle in das Remote-Verzeichnis, wenn angegeben
+		if (remoteDirectory) {
+			await ftpClient.cd(remoteDirectory);
 		}
 
 		return ftpClient;
@@ -863,13 +1151,14 @@ export function activate(context: vscode.ExtensionContext) {
 		uploadNewerFileCommand,
 		createFileCommand,
 		createFolderCommand,
-		ftpExplorerProvider
+		ftpExplorerProvider,
+		outputChannel
 	);
 }
 
 // This method is called when your extension is deactivated
 export function deactivate() {
 	if (ftpClient) {
-		ftpClient.close();
+		(ftpClient as ftp.Client).close();
 	}
 }
