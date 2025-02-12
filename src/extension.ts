@@ -12,6 +12,7 @@ let globalDownloadChoice: string | undefined;
 
 interface FtpSettings {
 	host: string;
+	port?: number;
 	username: string;
 	password: string;
 	remoteDirectory?: string;
@@ -265,11 +266,12 @@ export function activate(context: vscode.ExtensionContext) {
 		// Versuche zuerst die JSON-Einstellungen zu laden
 		const jsonSettings = await loadFtpSettings();
 		
-		let host: string, username: string, password: string, remoteDirectory: string | undefined;
+		let host: string, port: number, username: string, password: string, remoteDirectory: string | undefined;
 		
 		if (jsonSettings) {
 			// Verwende die JSON-Einstellungen
 			host = jsonSettings.host;
+			port = jsonSettings.port || 21; // Standard-Port 21 für FTP
 			username = jsonSettings.username;
 			password = jsonSettings.password;
 			remoteDirectory = jsonSettings.remoteDirectory;
@@ -277,6 +279,7 @@ export function activate(context: vscode.ExtensionContext) {
 			// Aktualisiere auch die VS Code-Einstellungen für die Kompatibilität
 			const config = vscode.workspace.getConfiguration('alfsFtp');
 			await config.update('host', host, true);
+			await config.update('port', port, true);
 			await config.update('username', username, true);
 			await config.update('password', password, true);
 			if (remoteDirectory) {
@@ -286,6 +289,7 @@ export function activate(context: vscode.ExtensionContext) {
 			// Fallback auf VS Code-Einstellungen
 			const config = vscode.workspace.getConfiguration('alfsFtp');
 			host = config.get<string>('host') || '';
+			port = config.get<number>('port') || 21;
 			username = config.get<string>('username') || '';
 			password = config.get<string>('password') || '';
 			remoteDirectory = config.get<string>('remoteDirectory');
@@ -300,6 +304,7 @@ export function activate(context: vscode.ExtensionContext) {
 			ftpClient.ftp.verbose = true;
 			await ftpClient.access({
 				host,
+				port,
 				user: username,
 				password,
 				secure: jsonSettings?.secure ?? false

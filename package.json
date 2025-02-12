@@ -2,7 +2,7 @@
   "name": "alfsftpplugin",
   "displayName": "Alfs FTP Plugin",
   "description": "FTP Plugin for easy file upload and download",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "publisher": "purecrea",
   "icon": "images/icon.png",
   "repository": {
@@ -112,6 +112,11 @@
           "type": "string",
           "default": "",
           "description": "FTP server host"
+        },
+        "alfsFtp.port": {
+          "type": "number",
+          "default": 21,
+          "description": "FTP server port (default: 21 for FTP, 22 for SFTP, 990 for FTPS)"
         },
         "alfsFtp.username": {
           "type": "string",

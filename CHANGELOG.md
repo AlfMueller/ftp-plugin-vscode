@@ -4,6 +4,22 @@ All notable changes to the "alfsftpplugin" extension will be documented in this 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.8] - 2024-02-12
+
+### Added
+- Support for custom port configuration
+- Default ports for different protocols (FTP: 21, SFTP: 22, FTPS: 990)
+
+### Changed
+- Updated documentation with port configuration examples
+- Enhanced connection handling for different protocols
+
+## [0.0.7] - 2024-02-11
+
+### Changed
+- Updated extension categories to use officially supported VS Code Marketplace categories
+- Removed invalid "FTP" category
+
 ## [0.0.6] - 2024-02-11
 
 ### Changed

@@ -25,6 +25,7 @@ Open `ftp-settings.json` and adjust the following settings:
 ```json
 {
     "host": "ftp.your-domain.com",
+    "port": 21,
     "username": "your_username",
     "password": "your_password",
     "remoteDirectory": "/public_html",
@@ -41,6 +42,7 @@ Open `ftp-settings.json` and adjust the following settings:
 
 The settings explained:
 - `host`: Your FTP server address
+- `port`: Server port (default: 21 for FTP, 22 for SFTP, 990 for FTPS)
 - `username`: Your FTP username
 - `password`: Your FTP password
 - `remoteDirectory`: Default directory on server (optional)
@@ -70,6 +72,7 @@ This prevents your FTP credentials from accidentally being added to version cont
 | Setting | Required | Description |
 |---------|----------|-------------|
 | host | Yes | FTP server address |
+| port | No | Server port (default: 21 for FTP, 22 for SFTP, 990 for FTPS) |
 | username | Yes | FTP username |
 | password | Yes | FTP password |
 | remoteDirectory | No | Default directory on server |
