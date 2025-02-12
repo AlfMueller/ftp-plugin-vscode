@@ -2,6 +2,8 @@
 
 A user-friendly FTP plugin for Visual Studio Code that enables easy file upload and download via FTP.
 
+![Alfs FTP Plugin Screenshot](images/screenshot.png)
+
 ## Features
 
 ### File Operations
