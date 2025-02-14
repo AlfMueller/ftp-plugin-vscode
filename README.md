@@ -135,7 +135,19 @@ Please report issues on our [GitHub repository](https://github.com/AlfMueller/ft
 
 ## Release Notes
 
-### 0.0.1
+### 0.1.2
+- Fixed color status not updating in root directory
+- Improved file status synchronization
+- Better visual feedback
+
+### 0.1.1
+- Keyboard shortcuts (Ctrl+Alt+U/D/C)
+- Auto-actions configuration
+- Enhanced documentation
+- Improved security notes
+- Better troubleshooting guide
+
+### 0.1.0
 - Initial release
 - Basic FTP functionality
 - Visual file status indicators

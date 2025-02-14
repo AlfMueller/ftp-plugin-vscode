@@ -4,6 +4,12 @@ All notable changes to the "alfsftpplugin" extension will be documented in this 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.2] - 2024-02-14
+### Fixed
+- Color status not updating correctly for files in root directory after download
+- Improved file status synchronization
+- Better visual feedback after file operations
+
 ## [0.1.1] - 2024-02-14
 ### Added
 - Keyboard shortcuts (Ctrl+Alt+U/D/C)
