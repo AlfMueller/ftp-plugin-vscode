@@ -618,9 +618,15 @@ async function activate(context) {
 			const remoteTime = new Date(item.remoteModifiedTime || Date.now());
 			await fs.promises.utimes(item.localPath, remoteTime, remoteTime);
 			log(`Zeitstempel aktualisiert für ${item.label}: ${remoteTime.toISOString()}`);
+			
+			// Komplette Aktualisierung der Ansicht
+			const rootItems = await treeDataProvider.getFtpItems('/');
+			const localItems = await treeDataProvider.getLocalItems(treeDataProvider.localRoot);
+			treeDataProvider.items = await mergeItems(localItems, rootItems);
 		}
 		
 		log(`Download erfolgreich: ${item.localPath}`, 'success');
+		treeDataProvider.refresh();
 	}
 
 	let uploadFileCommand = vscode.commands.registerCommand('ftpExplorer.uploadFile', async (item) => {
@@ -732,6 +738,16 @@ async function activate(context) {
 					const remoteTime = new Date(item.remoteModifiedTime);
 					await fs.promises.utimes(item.localPath, remoteTime, remoteTime);
 				}
+				
+				// Status aktualisieren
+				item.contextValue = 'file';
+				item.resourceUri = undefined;
+				
+				// Komplette Aktualisierung der Ansicht
+				const rootItems = await treeDataProvider.getFtpItems('/');
+				const localItems = await treeDataProvider.getLocalItems(treeDataProvider.localRoot);
+				treeDataProvider.items = await mergeItems(localItems, rootItems);
+				treeDataProvider.refresh();
 				
 				// Öffne die heruntergeladene Datei
 				const doc = await vscode.workspace.openTextDocument(item.localPath);
