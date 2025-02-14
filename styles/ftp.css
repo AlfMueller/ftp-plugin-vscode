@@ -1,0 +1,61 @@
+.ftp-item {
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    margin: 2px 0;
+}
+
+.ftp-item-name {
+    flex-grow: 1;
+}
+
+.ftp-item.newer-local {
+    color: #0066cc;
+    font-weight: bold;
+}
+
+.ftp-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.ftp-action-button {
+    cursor: pointer;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    opacity: 0;
+    margin-left: 4px;
+}
+
+.ftp-action-button:hover {
+    background: #e0e0e0;
+    border-radius: 4px;
+}
+
+.upload-icon::before {
+    content: "⬆️";
+}
+
+.download-icon::before {
+    content: "⬇️";
+}
+
+.modified-file {
+    color: var(--vscode-gitDecoration-modifiedResourceForeground);
+}
+
+/* Spezifische Styles für die FTP-View */
+.ftp-explorer-tree-item {
+    display: flex;
+    align-items: center;
+}
+
+.ftp-explorer-tree-item[data-modified="true"] {
+    color: var(--vscode-gitDecoration-modifiedResourceForeground);
+}
+
+/* Icon Styles */
+.ftp-explorer-tree-item:hover .ftp-action-button {
+    opacity: 1;
+} 
