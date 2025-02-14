@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-node_modules
-.vscode-test/
-*.vsix
-.DS_Store
-ftp-settings.json 
-=======
 # FTP Einstellungen
 ftp-settings.json
 
@@ -31,4 +24,3 @@ yarn-error.log*
 # System Files
 .DS_Store
 Thumbs.db 
->>>>>>> 030dc8ff48000dbbbaa73b5f61eaf08715963d53

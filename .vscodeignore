@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .vscode/**
 .vscode-test/**
 test/**
@@ -8,3 +9,16 @@ vsc-extension-quickstart.md
 **/.eslintrc.json
 **/*.map
 **/*.ts 
+=======
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+**/tsconfig.json
+**/eslint.config.mjs
+**/*.map
+**/*.ts
+**/.vscode-test.*
+>>>>>>> 030dc8ff48000dbbbaa73b5f61eaf08715963d53

@@ -1,37 +1,6 @@
 {
   "name": "alfsftpplugin",
   "displayName": "Alfs FTP Plugin",
-<<<<<<< HEAD
-  "description": "A user-friendly FTP plugin for Visual Studio Code",
-  "version": "0.1.0",
-  "publisher": "purecrea",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/AlfMueller/ftp-plugin-vscode.git"
-  },
-  "icon": "images/icon.png",
-  "galleryBanner": {
-    "color": "#C80000",
-    "theme": "dark"
-  },
-  "engines": {
-    "vscode": "^1.87.0"
-  },
-  "keywords": [
-    "ftp",
-    "sftp",
-    "upload",
-    "download",
-    "sync"
-  ],
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "main": "./extension.js",
-=======
   "description": "FTP Plugin for easy file upload and download",
   "version": "0.0.9",
   "publisher": "purecrea",
@@ -60,18 +29,13 @@
       "supported": true
     }
   },
->>>>>>> 030dc8ff48000dbbbaa73b5f61eaf08715963d53
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "ftp-explorer",
           "title": "FTP Explorer",
-<<<<<<< HEAD
-          "icon": "$(file-binary)"
-=======
           "icon": "$(cloud)"
->>>>>>> 030dc8ff48000dbbbaa73b5f61eaf08715963d53
         }
       ]
     },
@@ -79,72 +43,14 @@
       "ftp-explorer": [
         {
           "id": "ftpExplorer",
-<<<<<<< HEAD
-          "name": "FTP SERVER FILES",
-          "icon": "$(file-binary)"
-=======
           "name": "FTP Files",
           "icon": "$(cloud)",
           "contextualTitle": "FTP Explorer"
->>>>>>> 030dc8ff48000dbbbaa73b5f61eaf08715963d53
         }
       ]
     },
     "commands": [
       {
-<<<<<<< HEAD
-        "command": "alfsftpplugin.connect",
-        "title": "FTP: Verbinden",
-        "icon": "$(plug)"
-      },
-      {
-        "command": "alfsftpplugin.disconnect",
-        "title": "FTP: Verbindung trennen",
-        "icon": "$(debug-disconnect)"
-      },
-      {
-        "command": "alfsftpplugin.upload",
-        "title": "FTP: Hochladen",
-        "icon": "$(cloud-upload)"
-      },
-      {
-        "command": "alfsftpplugin.download",
-        "title": "FTP: Herunterladen",
-        "icon": "$(cloud-download)"
-      },
-      {
-        "command": "alfsftpplugin.showDebug",
-        "title": "FTP: Debug-Protokoll anzeigen",
-        "icon": "$(output)"
-      },
-      {
-        "command": "alfsftpplugin.toggleCollapse",
-        "title": "FTP: Toggle Collapse/Expand",
-        "icon": "$(chevron-right)"
-      },
-      {
-        "command": "ftpExplorer.downloadFile",
-        "title": "Download",
-        "icon": "$(cloud-download)"
-      },
-      {
-        "command": "ftpExplorer.uploadFile",
-        "title": "Upload",
-        "icon": "$(cloud-upload)"
-      }
-    ],
-    "menus": {
-      "view/item/context": [
-        {
-          "command": "ftpExplorer.downloadFile",
-          "when": "view == ftpExplorer",
-          "group": "inline"
-        },
-        {
-          "command": "ftpExplorer.uploadFile",
-          "when": "view == ftpExplorer && viewItem != remoteOnly",
-          "group": "inline"
-=======
         "command": "alfsftpplugin.uploadFile",
         "title": "FTP: Upload File",
         "category": "FTP",
@@ -278,31 +184,10 @@
         {
           "command": "alfsftpplugin.configure",
           "group": "FTP"
->>>>>>> 030dc8ff48000dbbbaa73b5f61eaf08715963d53
         }
       ],
       "view/title": [
         {
-<<<<<<< HEAD
-          "command": "alfsftpplugin.connect",
-          "when": "view == ftpExplorer",
-          "group": "navigation@1"
-        },
-        {
-          "command": "alfsftpplugin.disconnect",
-          "when": "view == ftpExplorer",
-          "group": "navigation@2"
-        },
-        {
-          "command": "alfsftpplugin.showDebug",
-          "when": "view == ftpExplorer",
-          "group": "navigation@3"
-        },
-        {
-          "command": "alfsftpplugin.toggleCollapse",
-          "when": "view == ftpExplorer",
-          "group": "navigation@4"
-=======
           "command": "alfsftpplugin.refreshFtpView",
           "when": "view == ftpExplorer",
           "group": "navigation"
@@ -338,19 +223,11 @@
           "command": "alfsftpplugin.createFolder",
           "when": "view == ftpExplorer && viewItem == directory",
           "group": "1_creation@2"
->>>>>>> 030dc8ff48000dbbbaa73b5f61eaf08715963d53
         }
       ]
     },
     "colors": [
       {
-<<<<<<< HEAD
-        "id": "ftpExplorer.modifiedFile",
-        "description": "Color for files that are newer locally",
-        "defaults": {
-          "dark": "#0066cc",
-          "light": "#0066cc",
-=======
         "id": "ftpPlugin.uploadIcon",
         "description": "Color for the upload icon",
         "defaults": {
@@ -365,50 +242,10 @@
         "defaults": {
           "dark": "#4dabf7",
           "light": "#228be6",
->>>>>>> 030dc8ff48000dbbbaa73b5f61eaf08715963d53
           "highContrast": "#0066cc"
         }
       },
       {
-<<<<<<< HEAD
-        "id": "ftpExplorer.missingLocalFile",
-        "description": "Color for files that don't exist locally",
-        "defaults": {
-          "dark": "#ff8c00",
-          "light": "#ff8c00",
-          "highContrast": "#ff8c00"
-        }
-      }
-    ],
-    "configuration": {
-      "title": "FTP Configuration",
-      "properties": {
-        "alfsftpplugin.defaultPort": {
-          "type": "number",
-          "default": 21,
-          "description": "Standard FTP Port"
-        },
-        "alfsftpplugin.autoConnect": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatisch beim Start verbinden",
-          "order": 1
-        }
-      }
-    }
-  },
-  "scripts": {
-    "lint": "eslint .",
-    "pretest": "npm run lint",
-    "test": "node ./test/runTest.js"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.87.0",
-    "@types/mocha": "^10.0.6",
-    "@types/node": "18.x",
-    "@vscode/test-cli": "^0.0.4",
-    "@vscode/test-electron": "^2.3.9",
-=======
         "id": "ftpPlugin.newerFile",
         "description": "Color for files that are newer locally",
         "defaults": {
@@ -434,16 +271,11 @@
     "@types/vscode": "^1.86.0",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "@typescript-eslint/parser": "^6.19.1",
->>>>>>> 030dc8ff48000dbbbaa73b5f61eaf08715963d53
     "eslint": "^8.56.0",
     "typescript": "^5.3.3"
   },
   "dependencies": {
-<<<<<<< HEAD
-    "basic-ftp": "^5.0.5"
-=======
     "basic-ftp": "^5.0.5",
     "ssh2": "^1.16.0"
->>>>>>> 030dc8ff48000dbbbaa73b5f61eaf08715963d53
   }
 }
