@@ -17,8 +17,16 @@ A user-friendly FTP plugin for Visual Studio Code that provides seamless FTP int
 - 🚀 One-click connection with auto-connect option
 - 📂 Easy file and folder upload/download with progress indication
 - 🎨 Visual status indicators:
-  - Blue: Files that are newer locally
-  - Orange: Files that exist only on the server
+  - 🔵 Blue (#0066cc): Files that are newer locally and need to be uploaded
+  - 🟠 Orange (#ff8c00): Files that exist only on the server
+  - ⚪ Normal: Files that are in sync
+- 🎯 Icon indicators in FTP Explorer:
+  - 🔌 Connect: Establish FTP connection
+  - ❌ Disconnect: Close FTP connection
+  - ⬆️ Upload: Upload selected file/folder
+  - ⬇️ Download: Download selected file/folder
+  - 📝 Debug: Show debug log
+  - ➡️ Toggle: Expand/collapse all folders
 - ⏱️ Automatic timestamp synchronization
 - 🔄 Bi-directional synchronization
 - 🔍 Integrated debug view
@@ -70,6 +78,21 @@ A user-friendly FTP plugin for Visual Studio Code that provides seamless FTP int
 * `compareTimestamps`: Enable timestamp comparison
 * `ui.newerLocalColor`: Color for newer local files
 * `ui.showIcons`: Show file type icons
+
+### UI Customization
+Configure the visual appearance in ftp-settings.json:
+```json
+{
+    "ui": {
+        "newerLocalColor": "#0066cc",  // Color for files that need upload
+        "showIcons": true              // Show file type icons
+    }
+}
+```
+
+The colors are also customizable through VS Code's color customization:
+- `ftpExplorer.modifiedFile`: Color for files that are newer locally
+- `ftpExplorer.missingLocalFile`: Color for files that don't exist locally
 
 2. Open the FTP Explorer view in the sidebar
 3. Click the connect button or wait for auto-connect
