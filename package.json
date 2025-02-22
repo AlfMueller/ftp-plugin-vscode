@@ -1,7 +1,7 @@
 {
   "name": "alfsftpplugin",
   "displayName": "Alfs FTP Plugin",
-  "description": "Ein einfaches FTP Plugin für Visual Studio Code",
+  "description": "A simple and efficient FTP plugin for Visual Studio Code",
   "version": "0.1.3",
   "publisher": "purecrea",
   "repository": {
@@ -52,27 +52,27 @@
     "commands": [
       {
         "command": "alfsftpplugin.connect",
-        "title": "FTP: Verbinden",
+        "title": "FTP: Connect",
         "icon": "$(plug)"
       },
       {
         "command": "alfsftpplugin.disconnect",
-        "title": "FTP: Verbindung trennen",
+        "title": "FTP: Disconnect",
         "icon": "$(debug-disconnect)"
       },
       {
         "command": "alfsftpplugin.upload",
-        "title": "FTP: Hochladen",
+        "title": "FTP: Upload",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "alfsftpplugin.download",
-        "title": "FTP: Herunterladen",
+        "title": "FTP: Download",
         "icon": "$(cloud-download)"
       },
       {
         "command": "alfsftpplugin.showDebug",
-        "title": "FTP: Debug-Protokoll anzeigen",
+        "title": "FTP: Show Debug Log",
         "icon": "$(output)"
       },
       {
@@ -153,12 +153,12 @@
         "alfsftpplugin.defaultPort": {
           "type": "number",
           "default": 21,
-          "description": "Standard FTP Port"
+          "description": "Default FTP Port"
         },
         "alfsftpplugin.autoConnect": {
           "type": "boolean",
           "default": true,
-          "description": "Automatisch beim Start verbinden",
+          "description": "Automatically connect at startup",
           "order": 1
         }
       }
