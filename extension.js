@@ -6,6 +6,17 @@ const fs = require('fs');
 const path = require('path');
 
 let outputChannel;
+let ftpClient = null;
+let treeDataProvider = null;
+let treeView;
+
+let settings = {
+	language: 'en',
+	ui: {
+		dateFormat: 'EU',
+		remoteOnlyColor: '#ff6b6b'
+	}
+};
 
 function log(message, type = 'info') {
 	if (!outputChannel) {
@@ -17,6 +28,59 @@ function log(message, type = 'info') {
 	if (type === 'error') {
 		outputChannel.show(true);
 	}
+}
+
+function formatDate(date, format = 'EU') {
+	if (format === 'US') {
+		return date.toLocaleDateString('en-US') + ' ' + 
+			   date.toLocaleTimeString('en-US');
+	}
+	return date.toLocaleDateString('de-DE') + ' ' + 
+		   date.toLocaleTimeString('de-DE');
+}
+
+function t(key) {
+	const translations = {
+		'en': {
+			'connection_error': 'No FTP connection active',
+			'workspace_error': 'Please open a workspace to use the FTP plugin',
+			'settings_error': 'Error loading FTP settings. Please check ftp-settings.json',
+			'connection_established': 'FTP connection established to',
+			'connection_closed': 'FTP connection closed',
+			'upload_success': 'Upload successful',
+			'download_success': 'Download successful',
+			'file_opened': 'File opened',
+			'directory_created': 'Directory created',
+			'refresh_complete': 'FTP Explorer has been refreshed',
+			'delete_confirm': 'Do you really want to delete the remote',
+			'yes_delete': 'Yes, delete',
+			'cancel': 'Cancel',
+			'remote_only_delete': 'Only remote-only files and folders can be deleted',
+			'create_settings': 'No FTP settings found. Would you like to create an example configuration file?',
+			'settings_created': 'FTP settings have been created. Please adjust the values in ftp-settings.json',
+			'progress_complete': 'complete'
+		},
+		'de': {
+			'connection_error': 'Keine FTP-Verbindung aktiv',
+			'workspace_error': 'Bitte öffnen Sie einen Workspace, um das FTP Plugin zu nutzen',
+			'settings_error': 'Fehler beim Laden der FTP-Einstellungen. Bitte überprüfen Sie die ftp-settings.json',
+			'connection_established': 'FTP-Verbindung hergestellt zu',
+			'connection_closed': 'FTP-Verbindung getrennt',
+			'upload_success': 'Upload erfolgreich',
+			'download_success': 'Download erfolgreich',
+			'file_opened': 'Datei geöffnet',
+			'directory_created': 'Verzeichnis erstellt',
+			'refresh_complete': 'FTP Explorer wurde aktualisiert',
+			'delete_confirm': 'Möchten Sie wirklich löschen',
+			'yes_delete': 'Ja, löschen',
+			'cancel': 'Abbrechen',
+			'remote_only_delete': 'Nur Remote-Only Dateien und Ordner können gelöscht werden',
+			'create_settings': 'Keine FTP-Einstellungen gefunden. Möchten Sie eine Beispiel-Konfigurationsdatei erstellen?',
+			'settings_created': 'FTP-Einstellungen wurden erstellt. Bitte passen Sie die Werte in der ftp-settings.json an',
+			'progress_complete': 'abgeschlossen'
+		}
+	};
+	return translations[settings.language][key] || key;
 }
 
 // This method is called when your extension is activated
@@ -45,9 +109,17 @@ class FtpTreeDataProvider {
 		this.connectionStatus = 'disconnected';
 		this.fileFilter = null;
 		this._items = new Map();
+		this.compareTimestamps = true; // Standardwert für Zeitstempelvergleich
+		this.settings = {
+			language: 'en',
+			ui: {
+				dateFormat: 'EU',
+				remoteOnlyColor: '#ff6b6b'
+			}
+		};
 		
 		// Logging der Initialisierung
-		log(`FtpTreeDataProvider initialisiert mit localRoot: ${this.localRoot}`);
+		log(`FTP TreeDataProvider initialized with localRoot: ${this.localRoot}`);
 	}
 
 	refresh() {
@@ -78,8 +150,7 @@ class FtpTreeDataProvider {
 							
 							const stats = await fs.promises.stat(fullPath);
 							const modifiedDate = new Date(stats.mtime);
-							const dateStr = modifiedDate.toLocaleDateString('de-DE') + ' ' + 
-										  modifiedDate.toLocaleTimeString('de-DE');
+							const dateStr = formatDate(modifiedDate, this.settings.ui.dateFormat);
 							
 							const treeItem = new FtpItem(
 								file.name,
@@ -128,8 +199,7 @@ class FtpTreeDataProvider {
 							
 							const stats = await fs.promises.stat(fullPath);
 							const modifiedDate = new Date(stats.mtime);
-							const dateStr = modifiedDate.toLocaleDateString('de-DE') + ' ' + 
-										  modifiedDate.toLocaleTimeString('de-DE');
+							const dateStr = formatDate(modifiedDate, this.settings.ui.dateFormat);
 							
 							const treeItem = new FtpItem(
 								file.name,
@@ -165,15 +235,6 @@ class FtpTreeDataProvider {
 				items = await this.getFtpItems(remotePath, true);
 			}
 
-			// Sortiere Items: Erst Ordner, dann Dateien alphabetisch
-			items.sort((a, b) => {
-				const aIsDir = a.contextValue === 'directory';
-				const bIsDir = b.contextValue === 'directory';
-				if (aIsDir && !bIsDir) return -1;
-				if (!aIsDir && bIsDir) return 1;
-				return String(a.label).localeCompare(String(b.label));
-			});
-			
 			// Speichere alle Items in der Map
 			items.forEach(item => this._setItem(item));
 			
@@ -210,17 +271,15 @@ class FtpTreeDataProvider {
 			log(`Pfad liegt außerhalb des Workspace: ${localPath}`, 'error');
 			return [];
 		}
-		
-		// Erstelle den Ordner falls er nicht existiert
-		try {
-			await fs.promises.mkdir(localPath, { recursive: true });
-		} catch (err) {
-			log(`Fehler beim Erstellen des lokalen Verzeichnisses: ${err.message}`, 'error');
-			return [];
-		}
 
 		try {
 			const items = [];
+			
+			// Prüfe ob der Ordner existiert, ohne ihn zu erstellen
+			if (!fs.existsSync(localPath)) {
+				log(`Lokaler Pfad existiert nicht: ${localPath}`);
+				return [];
+			}
 			
 			// Lese nur die aktuelle Verzeichnisebene
 			let files;
@@ -233,6 +292,11 @@ class FtpTreeDataProvider {
 			
 			for (const file of files) {
 				try {
+					// Überspringe ftp-settings.json
+					if (file.name === 'ftp-settings.json') {
+						continue;
+					}
+
 					const fullPath = path.join(localPath, file.name);
 					const itemRelativePath = path.relative(this.localRoot, fullPath);
 					const remotePath = path.posix.join(this.remoteRoot, itemRelativePath).replace(/\\/g, '/');
@@ -248,8 +312,7 @@ class FtpTreeDataProvider {
 					}
 
 					const modifiedDate = new Date(stats.mtime);
-					const dateStr = modifiedDate.toLocaleDateString('de-DE') + ' ' + 
-								  modifiedDate.toLocaleTimeString('de-DE');
+					const dateStr = formatDate(modifiedDate, this.settings.ui.dateFormat);
 					
 					const treeItem = new FtpItem(
 						file.name,
@@ -314,8 +377,8 @@ class FtpTreeDataProvider {
 			const items = [];
 			
 			for (const item of list) {
-				// Überspringe . und .. Einträge
-				if (item.name === '.' || item.name === '..') {
+				// Überspringe . und .. Einträge und ftp-settings.json
+				if (item.name === '.' || item.name === '..' || item.name === 'ftp-settings.json') {
 					continue;
 				}
 
@@ -344,20 +407,26 @@ class FtpTreeDataProvider {
 					await fs.promises.access(localFullPath);
 					localExists = true;
 				} catch {
-					// Datei existiert nicht lokal
+					// Datei oder Ordner existiert nicht lokal
 					if (!item.isDirectory) {
 						treeItem.resourceUri = vscode.Uri.file(localFullPath).with({ 
 							scheme: 'ftpExplorer-missing' 
 						});
 						log(`Markiere fehlende lokale Datei: ${item.name}`);
+					} else {
+						treeItem.resourceUri = vscode.Uri.file(localFullPath).with({ 
+							scheme: 'ftpExplorer-remoteDirectory' 
+						});
+						log(`Markiere remote-only Ordner: ${item.name}`);
 					}
 				}
 				
-				treeItem.contextValue = item.isDirectory ? 'directory' : (localExists ? 'file' : 'remoteOnly');
+				treeItem.contextValue = item.isDirectory 
+					? (localExists ? 'directory' : 'remoteDirectory')
+					: (localExists ? 'file' : 'remoteOnly');
 				
 				const modifiedDate = item.modifiedAt ? new Date(item.modifiedAt) : new Date();
-				const dateStr = modifiedDate.toLocaleDateString('de-DE') + ' ' + 
-							  modifiedDate.toLocaleTimeString('de-DE');
+				const dateStr = formatDate(modifiedDate, this.settings.ui.dateFormat);
 				const sizeStr = item.isDirectory ? '' : this.formatFileSize(item.size);
 				
 				treeItem.description = item.isDirectory ? 
@@ -423,89 +492,206 @@ class FtpTreeDataProvider {
 
 	// Neue mergeItems-Methode in der Klasse
 	async mergeItems(localItems, remoteItems) {
-		const folders = new Map();
-		const files = new Map();
+		const allItems = new Map();
 		
-		// Zuerst Remote-Items verarbeiten
-		remoteItems.forEach(remoteItem => {
-			const target = remoteItem.contextValue === 'directory' ? folders : files;
-			target.set(remoteItem.label, {
-				item: remoteItem,
-				exists: { local: false, remote: true }
-			});
-		});
-		
-		// Dann lokale Items verarbeiten
-		localItems.forEach(item => {
-			const target = item.contextValue === 'directory' ? folders : files;
-			if (target.has(item.label)) {
-				// Item existiert bereits (von Remote)
-				const existingEntry = target.get(item.label);
-				existingEntry.exists.local = true;
-				
-				const remoteItem = existingEntry.item;
-				remoteItem.localPath = item.localPath;
-				
-				// Zeitstempelvergleich für Dateien
-				if (item.contextValue !== 'directory') {
-					try {
-						const localStats = fs.statSync(item.localPath);
-						const localDate = new Date(localStats.mtime);
-						const remoteDate = remoteItem.remoteModifiedTime ? 
-							new Date(remoteItem.remoteModifiedTime) : new Date(0);
-						
-						// Vergleiche Zeitstempel mit 1 Sekunde Toleranz
-						const timeDiff = Math.abs(localDate.getTime() - remoteDate.getTime());
-						log(`Zeitstempelvergleich für ${item.label}: Lokal ${localDate.toISOString()}, Remote ${remoteDate.toISOString()}, Diff: ${timeDiff}ms`);
-						
-						if (timeDiff > 1000 && localDate > remoteDate) {
-							log(`Datei ist lokal neuer: ${item.label}`);
-							remoteItem.resourceUri = vscode.Uri.file(item.localPath).with({ 
-								scheme: 'ftpExplorer' 
-							});
-						} else {
-							remoteItem.resourceUri = undefined;
-						}
-					} catch (err) {
-						log(`Fehler beim Zeitstempelvergleich für ${item.label}: ${err.message}`, 'error');
-					}
+		// Remote Items verarbeiten
+		for (const remoteItem of remoteItems) {
+			const localPath = remoteItem.localPath;
+			let localExists = false;
+			
+			try {
+				localExists = fs.existsSync(localPath);
+			} catch {
+				localExists = false;
+			}
+			
+			if (!localExists) {
+				// Setze Remote-Only Status
+				if (remoteItem.isLocalFolder) {
+					remoteItem.resourceUri = vscode.Uri.file(localPath).with({ 
+						scheme: 'ftpExplorer-remoteDirectory' 
+					});
+					remoteItem.contextValue = 'remoteDirectory';
+					remoteItem.description = `${remoteItem.description || ''} [Remote-Only]`;
+				} else {
+					remoteItem.resourceUri = vscode.Uri.file(localPath).with({ 
+						scheme: 'ftpExplorer-missing' 
+					});
+					remoteItem.contextValue = 'remoteOnly';
+					remoteItem.description = `${remoteItem.description || ''} [Remote-Only]`;
 				}
-			} else {
-				// Neues lokales Item
-				target.set(item.label, {
-					item,
-					exists: { local: true, remote: false }
-				});
-				
-				// Markiere lokale Dateien blau
-				if (item.contextValue !== 'directory') {
-					log(`Neue lokale Datei gefunden: ${item.label}`);
-					item.resourceUri = vscode.Uri.file(item.localPath).with({ 
+			}
+			
+			allItems.set(remoteItem.label, remoteItem);
+		}
+		
+		// Lokale Items verarbeiten
+		for (const localItem of localItems) {
+			if (!allItems.has(localItem.label)) {
+				if (localItem.contextValue !== 'directory') {
+					localItem.resourceUri = vscode.Uri.file(localItem.localPath).with({ 
 						scheme: 'ftpExplorer' 
 					});
 				}
+				allItems.set(localItem.label, localItem);
+			} else {
+				const existingItem = allItems.get(localItem.label);
+				existingItem.localPath = localItem.localPath;
+				
+				if (localItem.contextValue !== 'directory') {
+					try {
+						const localStats = fs.statSync(localItem.localPath);
+						const localDate = new Date(localStats.mtime);
+						const remoteDate = existingItem.remoteModifiedTime ? 
+							new Date(existingItem.remoteModifiedTime) : new Date(0);
+						
+						// Berücksichtige die compareTimestamps-Einstellung
+						if (this.compareTimestamps) {
+							const timeDiff = Math.abs(localDate.getTime() - remoteDate.getTime());
+							if (timeDiff > 1000 && localDate > remoteDate) {
+								existingItem.resourceUri = vscode.Uri.file(localItem.localPath).with({ 
+									scheme: 'ftpExplorer' 
+								});
+							} else {
+								existingItem.resourceUri = undefined;
+							}
+						}
+					} catch (err) {
+						log(`Fehler beim Zeitstempelvergleich für ${localItem.label}: ${err.message}`, 'error');
+					}
+				}
 			}
+		}
+		
+		// Alle Items in ein Array umwandeln
+		const mergedItems = Array.from(allItems.values());
+		
+		// Debug-Logging für die Sortierung
+		log('Vor der Sortierung:');
+		mergedItems.forEach(item => {
+			log(`Item: ${item.label}, Type: ${item.contextValue}`);
 		});
 		
-		// Sortierte Arrays erstellen
-		const sortedFolders = Array.from(folders.values())
-			.sort((a, b) => String(a.item.label).localeCompare(String(b.item.label)))
-			.map(entry => entry.item);
+		// Sortiere erst nach Typ (Ordner vor Dateien) und dann alphabetisch
+		const sortedItems = mergedItems.sort((a, b) => {
+			const aIsDir = a.isLocalFolder || a.contextValue === 'directory' || a.contextValue === 'remoteDirectory';
+			const bIsDir = b.isLocalFolder || b.contextValue === 'directory' || b.contextValue === 'remoteDirectory';
 			
-		const sortedFiles = Array.from(files.values())
-			.sort((a, b) => String(a.item.label).localeCompare(String(b.item.label)))
-			.map(entry => entry.item);
+			// Wenn einer ein Ordner ist und der andere nicht
+			if (aIsDir !== bIsDir) {
+				return aIsDir ? -1 : 1;
+			}
+			
+			// Wenn beide gleichen Typ haben, alphabetisch sortieren
+			return String(a.label).localeCompare(String(b.label));
+		});
 		
-		// Erst Ordner, dann Dateien
-		return [...sortedFolders, ...sortedFiles];
+		// Debug-Logging nach der Sortierung
+		log('Nach der Sortierung:');
+		sortedItems.forEach(item => {
+			log(`Item: ${item.label}, Type: ${item.contextValue}`);
+		});
+		
+		return sortedItems;
 	}
 }
 
-let ftpClient = null;
-let treeDataProvider = null;
+async function createDummyFtpSettings(workspaceRoot) {
+	const settingsPath = path.join(workspaceRoot, 'ftp-settings.json');
+	const dummySettings = {
+		"host": "ftp.example.com",
+		"user": "username",
+		"password": "password",
+		"port": 21,
+		"secure": false,
+		"root": "/",
+		"name": "FTP Server",
+		"ignoreCertificateErrors": true,
+		"rejectUnauthorized": false,
+		"showFileActions": true,
+		"compareTimestamps": true,
+		"language": "en", // or "de" for German
+		"ui": {
+			"newerLocalColor": "#0066cc",
+			"remoteOnlyColor": "#ff6b6b",
+			"showIcons": true,
+			"dateFormat": "EU" // or "US" for US date format
+		}
+	};
+	
+	try {
+		await fs.promises.writeFile(settingsPath, JSON.stringify(dummySettings, null, 2));
+		log('Dummy FTP settings created', 'success');
+		
+		// Open file directly in editor
+		const document = await vscode.workspace.openTextDocument(settingsPath);
+		await vscode.window.showTextDocument(document);
+		
+		return true;
+	} catch (err) {
+		log(`Error creating dummy settings: ${err.message}`, 'error');
+		return false;
+	}
+}
 
-// TreeView-Referenz global verfügbar machen
-let treeView;
+async function updateFtpSettings(existingSettings, workspaceFolder) {
+	const defaultSettings = {
+		"ignoreCertificateErrors": true,
+		"rejectUnauthorized": false,
+		"showFileActions": true,
+		"compareTimestamps": true,
+		"language": "en",
+		"ui": {
+			"newerLocalColor": "#0066cc",
+			"remoteOnlyColor": "#ff6b6b",
+			"showIcons": true,
+			"dateFormat": "EU"
+		}
+	};
+
+	let hasChanges = false;
+	
+	// Überprüfe und ergänze fehlende Haupteinstellungen
+	for (const [key, value] of Object.entries(defaultSettings)) {
+		if (key === 'ui') continue; // UI-Einstellungen separat behandeln
+		if (existingSettings[key] === undefined) {
+			existingSettings[key] = value;
+			hasChanges = true;
+			log(`Neue Einstellung hinzugefügt: ${key}`);
+		}
+	}
+
+	// Überprüfe und ergänze UI-Einstellungen
+	if (!existingSettings.ui) {
+		existingSettings.ui = defaultSettings.ui;
+		hasChanges = true;
+		log('UI-Einstellungen hinzugefügt');
+	} else {
+		for (const [key, value] of Object.entries(defaultSettings.ui)) {
+			if (existingSettings.ui[key] === undefined) {
+				existingSettings.ui[key] = value;
+				hasChanges = true;
+				log(`Neue UI-Einstellung hinzugefügt: ${key}`);
+			}
+		}
+	}
+
+	// Speichere aktualisierte Einstellungen, wenn Änderungen vorgenommen wurden
+	if (hasChanges) {
+		const settingsPath = path.join(workspaceFolder.uri.fsPath, 'ftp-settings.json');
+		try {
+			await fs.promises.writeFile(
+				settingsPath, 
+				JSON.stringify(existingSettings, null, 2)
+			);
+			log('FTP-Einstellungen wurden aktualisiert', 'success');
+		} catch (err) {
+			log(`Fehler beim Speichern der aktualisierten Einstellungen: ${err.message}`, 'error');
+		}
+	}
+
+	return existingSettings;
+}
 
 async function activate(context) {
 	console.log('FTP Plugin wird aktiviert');
@@ -527,7 +713,32 @@ async function activate(context) {
 	// TreeView erstellen
 	treeView = vscode.window.createTreeView('ftpExplorer', {
 		treeDataProvider: treeDataProvider,
-		showCollapseAll: true
+		showCollapseAll: true,
+		canSelectMany: false
+	});
+
+	// Event-Handler für das Öffnen des FTP-Explorers
+	treeView.onDidChangeVisibility(async (event) => {
+		if (event.visible) {
+			const settingsPath = path.join(workspaceRoot, 'ftp-settings.json');
+			try {
+				await fs.promises.access(settingsPath);
+			} catch {
+				const answer = await vscode.window.showInformationMessage(
+					t('create_settings'),
+					t('yes_delete'),
+					t('cancel')
+				);
+				
+				if (answer === t('yes_delete')) {
+					if (await createDummyFtpSettings(workspaceRoot)) {
+						vscode.window.showInformationMessage(
+							t('settings_created')
+						);
+					}
+				}
+			}
+		}
 	});
 
 	// Registriere den Color Provider
@@ -541,40 +752,69 @@ async function activate(context) {
 				return {
 					color: new vscode.ThemeColor('ftpExplorer.missingLocalFile')
 				};
+			} else if (uri.scheme === 'ftpExplorer-remoteDirectory') {
+				return {
+					color: new vscode.ThemeColor('ftpExplorer.remoteDirectory')
+				};
 			}
 		}
 	});
 
-	// Toggle Collapse/Expand Command
-	let isExpanded = false;
-	let toggleCollapseCommand = vscode.commands.registerCommand('alfsftpplugin.toggleCollapse', async () => {
-		try {
-			if (isExpanded) {
-				// Collapse all
-				await treeView.collapseAll();
-			} else {
-				// Expand all
-				const expandItem = async (item) => {
-					if (item.contextValue === 'directory') {
-						await treeView.reveal(item, { expand: true });
-						const children = await treeDataProvider.getChildren(item);
-						for (const child of children) {
-							await expandItem(child);
-						}
-					}
-				};
+	// Delete Remote Item Command
+	let deleteRemoteCommand = vscode.commands.registerCommand('ftpExplorer.deleteRemote', async (item) => {
+		if (!item || !item.remotePath) {
+			return;
+		}
 
-				// Expandiere Root-Items
-				const rootItems = await treeDataProvider.getChildren();
-				for (const item of rootItems) {
-					await expandItem(item);
-				}
+		try {
+			// Prüfe ob es sich um eine Remote-Only Datei oder einen Remote-Only Ordner handelt
+			if (item.contextValue !== 'remoteOnly' && item.contextValue !== 'remoteDirectory') {
+				vscode.window.showInformationMessage(t('remote_only_delete'));
+				return;
 			}
+
+			// Sicherheitsabfrage
+			const itemType = item.contextValue === 'remoteDirectory' ? 'Ordner' : 'Datei';
+			const answer = await vscode.window.showWarningMessage(
+				`Möchten Sie wirklich ${itemType === 'Ordner' ? 'den' : 'die'} Remote-${itemType} "${item.label}" löschen?`,
+				{ modal: true },
+				t('yes_delete'),
+				t('cancel')
+			);
+
+			if (answer !== t('yes_delete')) {
+				return;
+			}
+
+			if (!await ensureFtpConnection()) {
+				vscode.window.showErrorMessage('Keine FTP-Verbindung möglich');
+				return;
+			}
+
+			log(`Lösche Remote-Item: ${item.remotePath}`);
 			
-			isExpanded = !isExpanded;
+			if (item.contextValue === 'remoteDirectory') {
+				// Rekursives Löschen des Ordners
+				await ftpClient.removeDir(item.remotePath);
+				log(`Ordner gelöscht: ${item.remotePath}`, 'success');
+			} else {
+				// Einzelne Datei löschen
+				await ftpClient.remove(item.remotePath);
+				log(`Datei gelöscht: ${item.remotePath}`, 'success');
+			}
+
+			// Aktualisiere die Ansicht
+			if (await ensureFtpConnection()) {
+				const rootItems = await treeDataProvider.getFtpItems(treeDataProvider.remoteRoot);
+				const localItems = await treeDataProvider.getLocalItems(treeDataProvider.localRoot, rootItems);
+				treeDataProvider.items = await treeDataProvider.mergeItems(localItems, rootItems);
+				treeDataProvider.refresh();
+			}
+
+			vscode.window.showInformationMessage(`${itemType} "${item.label}" wurde erfolgreich gelöscht.`);
 		} catch (err) {
-			console.error('Toggle error:', err);
-			log(`Toggle-Fehler: ${err.message}`, 'error');
+			log(`Fehler beim Löschen: ${err.message}`, 'error');
+			vscode.window.showErrorMessage(`Fehler beim Löschen: ${err.message}`);
 		}
 	});
 
@@ -582,9 +822,23 @@ async function activate(context) {
 		try {
 			const workspaceFolder = vscode.workspace.workspaceFolders[0];
 			const settingsPath = path.join(workspaceFolder.uri.fsPath, 'ftp-settings.json');
+			
+			// Prüfe zuerst, ob die Datei existiert
+			try {
+				await fs.promises.access(settingsPath);
+			} catch {
+				log('Keine FTP-Einstellungen gefunden');
+				return null;
+			}
+			
 			const settingsContent = await fs.promises.readFile(settingsPath, 'utf8');
 			log(`Lade FTP-Einstellungen aus: ${settingsPath}`);
-			return JSON.parse(settingsContent);
+			let settings = JSON.parse(settingsContent);
+			
+			// Aktualisiere die Einstellungen mit fehlenden Werten
+			settings = await updateFtpSettings(settings, workspaceFolder);
+			
+			return settings;
 		} catch (err) {
 			log(`Fehler beim Laden der FTP-Einstellungen: ${err.message}`, 'error');
 			vscode.window.showErrorMessage('Fehler beim Laden der FTP-Einstellungen. Bitte überprüfen Sie die ftp-settings.json');
@@ -598,10 +852,20 @@ async function activate(context) {
 	
 	if (autoConnect) {
 		try {
-			// Kurze Verzögerung, um sicherzustellen, dass die Extension vollständig geladen ist
-			setTimeout(async () => {
-				await vscode.commands.executeCommand('alfsftpplugin.connect');
-			}, 1000);
+			// Prüfe zuerst, ob die Einstellungsdatei existiert
+			const workspaceFolder = vscode.workspace.workspaceFolders[0];
+			const settingsPath = path.join(workspaceFolder.uri.fsPath, 'ftp-settings.json');
+			
+			try {
+				await fs.promises.access(settingsPath);
+				// Datei existiert, versuche Verbindung
+				setTimeout(async () => {
+					await vscode.commands.executeCommand('alfsftpplugin.connect');
+				}, 1000);
+			} catch {
+				// Datei existiert nicht - keine Aktion
+				log('Keine FTP-Einstellungen für Auto-Connect gefunden');
+			}
 		} catch (err) {
 			log('Automatischer Verbindungsaufbau fehlgeschlagen', 'error');
 		}
@@ -612,7 +876,13 @@ async function activate(context) {
 			const settings = await loadFtpSettings();
 			if (!settings) return;
 
-			log(`Verbinde mit FTP-Server: ${settings.host}`);
+			// Globale Einstellungen aktualisieren
+			treeDataProvider.settings = settings;
+			treeDataProvider.settings.language = settings.language || 'en';
+			treeDataProvider.settings.ui = settings.ui || {};
+			treeDataProvider.settings.ui.dateFormat = settings.ui.dateFormat || 'EU';
+
+			log(`Connecting to FTP server: ${settings.host}`);
 			treeDataProvider.remoteRoot = settings.root || '/';
 
 			ftpClient = new ftp.Client();
@@ -621,15 +891,47 @@ async function activate(context) {
 			// FTP-Client Debug-Events
 			ftpClient.ftp.log = msg => log(`FTP: ${msg}`);
 
-			await ftpClient.access({
+			// Berücksichtige die erweiterten SSL/TLS-Einstellungen
+			const accessConfig = {
 				host: settings.host,
 				user: settings.user,
 				password: settings.password,
 				port: settings.port || 21,
-				secure: settings.secure || false
-			});
+				secure: settings.secure || false,
+				rejectUnauthorized: settings.rejectUnauthorized === false ? false : true
+			};
 
-			log(`FTP-Verbindung hergestellt zu ${settings.host}`, 'success');
+			if (settings.ignoreCertificateErrors) {
+				process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+			}
+
+			await ftpClient.access(accessConfig);
+
+			// UI-Einstellungen anwenden
+			if (settings.ui) {
+				// Color Provider für lokale und Remote-Dateien
+				const colorProvider = vscode.window.registerFileDecorationProvider({
+					provideFileDecoration: (uri) => {
+						if (uri.scheme === 'ftpExplorer') {
+							return {
+								color: new vscode.ThemeColor(settings.ui.newerLocalColor || 'ftpExplorer.modifiedFile')
+							};
+						} else if (uri.scheme === 'ftpExplorer-missing') {
+							return {
+								color: new vscode.ThemeColor(settings.ui.remoteOnlyColor || 'ftpExplorer.missingLocalFile')
+							};
+						}
+					}
+				});
+				context.subscriptions.push(colorProvider);
+			}
+
+			// Zeitstempelvergleich-Einstellung speichern
+			treeDataProvider.compareTimestamps = settings.compareTimestamps !== false;
+
+			// Name des FTP-Servers im Log anzeigen
+			const serverName = settings.name || settings.host;
+			log(`${t('connection_established')} ${serverName}`, 'success');
 
 			// Veränderte Logik für das Laden der Items
 			log('Lade Verzeichnisstruktur...');
@@ -643,7 +945,6 @@ async function activate(context) {
 			treeDataProvider.refresh();
 			
 			log('Verzeichnisstruktur geladen', 'success');
-			vscode.window.showInformationMessage('FTP-Verbindung hergestellt!');
 
 			treeDataProvider.updateConnectionStatus('connected');
 		} catch (err) {
@@ -669,7 +970,7 @@ async function activate(context) {
 			}
 			treeDataProvider.refresh();
 			log(`Upload erfolgreich: ${item.remotePath}`, 'success');
-			vscode.window.showInformationMessage(`Upload erfolgreich: ${item.remotePath}`);
+			vscode.window.showInformationMessage(t('upload_success') + `: ${item.remotePath}`);
 		} catch (err) {
 			log(`Upload-Fehler: ${err.message}`, 'error');
 			vscode.window.showErrorMessage(`Upload-Fehler: ${err.message}`);
@@ -699,7 +1000,7 @@ async function activate(context) {
 			}
 			treeDataProvider.refresh();
 			log(`Download erfolgreich: ${item.localPath}`, 'success');
-			vscode.window.showInformationMessage(`Download erfolgreich: ${item.localPath}`);
+			vscode.window.showInformationMessage(t('download_success') + `: ${item.localPath}`);
 		} catch (err) {
 			log(`Download-Fehler: ${err.message}`, 'error');
 			vscode.window.showErrorMessage(`Download-Fehler: ${err.message}`);
@@ -736,7 +1037,7 @@ async function activate(context) {
 					completed += increment;
 					progress.report({ 
 						increment,
-						message: `${Math.round(completed)}% abgeschlossen` 
+						message: `${Math.round(completed)}% ${t('progress_complete')}` 
 					});
 				}
 			} catch (error) {
@@ -781,7 +1082,7 @@ async function activate(context) {
 					completed += increment;
 					progress.report({ 
 						increment,
-						message: `${Math.round(completed)}% abgeschlossen` 
+						message: `${Math.round(completed)}% ${t('progress_complete')}` 
 					});
 				}
 			} catch (error) {
@@ -798,7 +1099,7 @@ async function activate(context) {
 			treeDataProvider.items = [];
 			treeDataProvider.refresh();
 			log('FTP-Verbindung getrennt', 'success');
-			vscode.window.showInformationMessage('FTP-Verbindung getrennt');
+			vscode.window.showInformationMessage(t('connection_closed'));
 
 			treeDataProvider.updateConnectionStatus('disconnected');
 		}
@@ -854,7 +1155,7 @@ async function activate(context) {
 			throw new Error('Keine FTP-Verbindung aktiv');
 		}
 		
-		if (item.contextValue === 'directory') {
+		if (item.contextValue === 'directory' || item.contextValue === 'remoteDirectory') {
 			log(`Downloading directory: ${item.remotePath}`);
 			await fs.promises.mkdir(item.localPath, { recursive: true });
 			
@@ -923,101 +1224,118 @@ async function activate(context) {
 		treeDataProvider.refresh();
 	}
 
-	let uploadFileCommand = vscode.commands.registerCommand('ftpExplorer.uploadFile', async (item) => {
+	// Neue Funktion zur Verbindungsprüfung
+	async function ensureFtpConnection() {
 		if (!ftpClient) {
-			log('Upload fehlgeschlagen: Keine FTP-Verbindung aktiv', 'error');
-			vscode.window.showErrorMessage('Keine FTP-Verbindung aktiv');
-			return;
+			log('Keine FTP-Verbindung vorhanden, versuche Verbindungsaufbau...', 'info');
+			return await reconnectFtp();
 		}
-
+		
 		try {
-			log(`Starte Upload: ${item.localPath} -> ${item.remotePath}`);
-			if (fs.statSync(item.localPath).isDirectory()) {
-				log(`Uploading directory: ${item.localPath}`);
-				await uploadDirectory(item.localPath, item.remotePath);
-			} else {
-				await ftpClient.uploadFrom(item.localPath, item.remotePath);
-			}
-			treeDataProvider.refresh();
-			log(`Upload erfolgreich: ${item.remotePath}`, 'success');
-			vscode.window.showInformationMessage(`Upload erfolgreich: ${item.remotePath}`);
+			// Teste die Verbindung mit einem einfachen Befehl
+			await ftpClient.pwd();
+			return true;
 		} catch (err) {
-			log(`Upload-Fehler: ${err.message}`, 'error');
-			vscode.window.showErrorMessage(`Upload-Fehler: ${err.message}`);
+			log('FTP-Verbindung unterbrochen, versuche Reconnect...', 'info');
+			return await reconnectFtp();
 		}
-	});
+	}
+
+	async function reconnectFtp() {
+		try {
+			// Wenn es einen alten Client gibt, diesen erst schließen
+			if (ftpClient) {
+				try {
+					ftpClient.close();
+				} catch (err) {
+					log(`Fehler beim Schließen der alten Verbindung: ${err.message}`, 'error');
+				}
+			}
+
+			log('Stelle neue FTP-Verbindung her...');
+			const settings = await loadFtpSettings();
+			if (!settings) return false;
+
+			ftpClient = new ftp.Client(30000); // Timeout auf 30 Sekunden setzen
+			ftpClient.ftp.verbose = true;
+			ftpClient.ftp.log = msg => log(`FTP: ${msg}`);
+
+			await ftpClient.access({
+				host: settings.host,
+				user: settings.user,
+				password: settings.password,
+				port: settings.port || 21,
+				secure: settings.secure || false
+			});
+
+			log('FTP-Verbindung hergestellt', 'success');
+			return true;
+		} catch (err) {
+			log(`Reconnect fehlgeschlagen: ${err.message}`, 'error');
+			ftpClient = null;
+			return false;
+		}
+	}
 
 	// Click-Handler für TreeView-Items
 	treeView.onDidChangeSelection(async (event) => {
-		const item = event.selection[0]; // Das ausgewählte Item
-		if (!item || item.contextValue === 'directory') return; // Ignoriere Ordner
+		const item = event.selection[0];
+		if (!item || item.contextValue === 'directory' || item.contextValue === 'remoteDirectory') return;
 
 		try {
 			if (item.contextValue === 'remoteOnly') {
-				// Remote Datei: Erst herunterladen, dann öffnen
+				if (!await ensureFtpConnection()) {
+					vscode.window.showErrorMessage('Keine FTP-Verbindung möglich');
+					return;
+				}
+
 				log(`Öffne Remote-Datei: ${item.remotePath}`);
 				await fs.promises.mkdir(path.dirname(item.localPath), { recursive: true });
 				await ftpClient.downloadTo(item.localPath, item.remotePath);
 				
-				// Zeitstempel setzen
 				if (item.remoteModifiedTime) {
 					const remoteTime = new Date(item.remoteModifiedTime);
 					await fs.promises.utimes(item.localPath, remoteTime, remoteTime);
 				}
 				
-				// Status aktualisieren
 				item.contextValue = 'file';
 				item.resourceUri = undefined;
-				
-				// Komplette Aktualisierung der Ansicht
-				const rootItems = await treeDataProvider.getFtpItems(treeDataProvider.remoteRoot);
-				const localItems = await treeDataProvider.getLocalItems(treeDataProvider.localRoot, rootItems);
-				treeDataProvider.items = await treeDataProvider.mergeItems(localItems, rootItems);
-				
-				// Öffne die heruntergeladene Datei erst nach der Aktualisierung
-				treeDataProvider.refresh();
-				const doc = await vscode.workspace.openTextDocument(item.localPath);
-				await vscode.window.showTextDocument(doc);
-				log(`Datei geöffnet: ${item.localPath}`);
-			} else {
-				// Lokale Datei: Direkt öffnen
-				log(`Öffne lokale Datei: ${item.localPath}`);
-				const doc = await vscode.workspace.openTextDocument(item.localPath);
-				await vscode.window.showTextDocument(doc);
-				log(`Datei geöffnet: ${item.localPath}`);
+			}
+			
+			// Öffne die Datei
+			const doc = await vscode.workspace.openTextDocument(item.localPath);
+			await vscode.window.showTextDocument(doc);
+			log(`Datei geöffnet: ${item.localPath}`);
+			
+			// Aktualisiere die Ansicht nur wenn nötig
+			if (item.contextValue === 'remoteOnly') {
+				if (await ensureFtpConnection()) {
+					const rootItems = await treeDataProvider.getFtpItems(treeDataProvider.remoteRoot);
+					const localItems = await treeDataProvider.getLocalItems(treeDataProvider.localRoot, rootItems);
+					treeDataProvider.items = await treeDataProvider.mergeItems(localItems, rootItems);
+					treeDataProvider.refresh();
+				}
 			}
 		} catch (err) {
-			if (err.message.includes('Client is closed')) {
-				log('Verbindung verloren, versuche Neuverbindung...');
-				await vscode.commands.executeCommand('alfsftpplugin.connect');
-			} else {
-				log(`Fehler beim Öffnen der Datei: ${err.message}`, 'error');
-				vscode.window.showErrorMessage(`Fehler beim Öffnen der Datei: ${err.message}`);
-			}
+			log(`Fehler beim Öffnen der Datei: ${err.message}`, 'error');
+			vscode.window.showErrorMessage(`Fehler beim Öffnen der Datei: ${err.message}`);
 		}
 	});
 
 	// Aktualisierung bei Fokus auf FTP Explorer
 	vscode.window.onDidChangeActiveTextEditor(async () => {
 		if (treeView.visible) {
-			if (ftpClient) {
-				try {
+			try {
+				if (await ensureFtpConnection()) {
 					log('Starte Tree-Aktualisierung nach Fokus...');
 					const rootItems = await treeDataProvider.getFtpItems(treeDataProvider.remoteRoot);
-					log('Remote Items geladen');
 					const localItems = await treeDataProvider.getLocalItems(treeDataProvider.localRoot, rootItems);
-					log('Lokale Items geladen');
 					treeDataProvider.items = await treeDataProvider.mergeItems(localItems, rootItems);
-					log('Items zusammengeführt');
 					treeDataProvider.refresh();
-				} catch (err) {
-					if (err.message.includes('Client is closed')) {
-						log('Verbindung verloren, versuche Neuverbindung...');
-						await vscode.commands.executeCommand('alfsftpplugin.connect');
-					} else {
-						log(`Fehler bei der Tree-Aktualisierung: ${err.message}`, 'error');
-					}
+					log('Tree-Aktualisierung abgeschlossen');
 				}
+			} catch (err) {
+				log(`Fehler bei der Tree-Aktualisierung: ${err.message}`, 'error');
 			}
 		}
 	});
@@ -1025,8 +1343,16 @@ async function activate(context) {
 	// Aktualisierung wenn eine Datei gespeichert wird
 	vscode.workspace.onDidSaveTextDocument(async (document) => {
 		// Prüfe ob die gespeicherte Datei im Workspace-Verzeichnis liegt
-		if (ftpClient && document.uri.scheme === 'file' && 
+		if (document.uri.scheme === 'file' && 
 			document.uri.fsPath.startsWith(treeDataProvider.localRoot)) {
+			
+			if (!ftpClient || ftpClient.closed) {
+				const reconnected = await reconnectFtp();
+				if (!reconnected) {
+					log('Keine FTP-Verbindung möglich', 'error');
+					return;
+				}
+			}
 			
 			try {
 				// Warte kurz, bis die Datei geschrieben wurde
@@ -1052,13 +1378,66 @@ async function activate(context) {
 				log(`Datei gespeichert und Tree aktualisiert: ${document.uri.fsPath}`);
 			} catch (err) {
 				if (err.message.includes('Client is closed')) {
-					// Versuche die Verbindung wiederherzustellen
-					log('Verbindung verloren, versuche Neuverbindung...');
-					await vscode.commands.executeCommand('alfsftpplugin.connect');
+					const reconnected = await reconnectFtp();
+					if (!reconnected) {
+						log('Verbindung konnte nicht wiederhergestellt werden', 'error');
+					}
 				} else {
 					log(`Fehler bei der Tree-Aktualisierung: ${err.message}`, 'error');
 				}
 			}
+		}
+	});
+
+	let uploadFileCommand = vscode.commands.registerCommand('ftpExplorer.uploadFile', async (item) => {
+		try {
+			if (!await ensureFtpConnection()) {
+				vscode.window.showErrorMessage('Keine FTP-Verbindung möglich');
+				return;
+			}
+
+			log(`Starte Upload: ${item.localPath} -> ${item.remotePath}`);
+			if (fs.statSync(item.localPath).isDirectory()) {
+				await uploadDirectory(item.localPath, item.remotePath);
+			} else {
+				await ftpClient.uploadFrom(item.localPath, item.remotePath);
+			}
+			
+			// Aktualisiere die Ansicht
+			if (await ensureFtpConnection()) {
+				const rootItems = await treeDataProvider.getFtpItems(treeDataProvider.remoteRoot);
+				const localItems = await treeDataProvider.getLocalItems(treeDataProvider.localRoot, rootItems);
+				treeDataProvider.items = await treeDataProvider.mergeItems(localItems, rootItems);
+				treeDataProvider.refresh();
+			}
+			
+			log(`Upload erfolgreich: ${item.remotePath}`, 'success');
+			vscode.window.showInformationMessage(t('upload_success') + `: ${item.remotePath}`);
+		} catch (err) {
+			log(`Upload-Fehler: ${err.message}`, 'error');
+			vscode.window.showErrorMessage(`Upload-Fehler: ${err.message}`);
+		}
+	});
+
+	let refreshCommand = vscode.commands.registerCommand('ftpExplorer.refresh', async () => {
+		try {
+			log('Starte manuelle Aktualisierung...');
+			
+			if (!await ensureFtpConnection()) {
+				vscode.window.showErrorMessage('Keine FTP-Verbindung möglich');
+				return;
+			}
+
+			const rootItems = await treeDataProvider.getFtpItems(treeDataProvider.remoteRoot);
+			const localItems = await treeDataProvider.getLocalItems(treeDataProvider.localRoot, rootItems);
+			treeDataProvider.items = await treeDataProvider.mergeItems(localItems, rootItems);
+			treeDataProvider.refresh();
+			
+			log('Manuelle Aktualisierung abgeschlossen', 'success');
+			vscode.window.showInformationMessage(t('refresh_complete'));
+		} catch (err) {
+			log(`Fehler bei der Aktualisierung: ${err.message}`, 'error');
+			vscode.window.showErrorMessage(`Aktualisierungsfehler: ${err.message}`);
 		}
 	});
 
@@ -1070,7 +1449,8 @@ async function activate(context) {
 	context.subscriptions.push(downloadFileCommand);
 	context.subscriptions.push(uploadFileCommand);
 	context.subscriptions.push(colorProvider);
-	context.subscriptions.push(toggleCollapseCommand);
+	context.subscriptions.push(deleteRemoteCommand);
+	context.subscriptions.push(refreshCommand);
 }
 
 // This method is called when your extension is deactivated
@@ -1088,3 +1468,4 @@ module.exports = {
 	activate,
 	deactivate
 }
+

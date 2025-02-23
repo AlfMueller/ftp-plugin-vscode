@@ -4,21 +4,56 @@ All notable changes to the "alfsftpplugin" extension will be documented in this 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [0.1.2] - 2024-02-14
-### Fixed
-- Color status not updating correctly for files in root directory after download
-- Improved file status synchronization
-- Better visual feedback after file operations
+## [0.2.0] - 2024-03-XX
 
-## [0.1.1] - 2024-02-14
 ### Added
-- Keyboard shortcuts (Ctrl+Alt+U/D/C)
-- Auto-actions configuration
-- Enhanced documentation
+- Enhanced SSL/TLS Support with advanced security options
+  - `ignoreCertificateErrors`: Option to ignore SSL certificate errors
+  - `rejectUnauthorized`: Option to control SSL certificate validation
+- Improved UI customization
+  - Configurable colors for local and remote files
+  - Customizable date formats (EU/US)
+  - Configurable icon display
+- Multilingual support
+  - English and German available
+  - Configurable via `language` setting
+- Advanced file comparison options
+  - Timestamp comparison can be enabled/disabled
+  - Improved visualization of file differences
+- Automatic configuration file updates
+  - Existing `ftp-settings.json` automatically extended with new options
+  - User settings are preserved
 
 ### Changed
-- Improved security notes
-- Better troubleshooting guide
+- Improved error handling for SSL/TLS connections
+- Optimized user interface with configurable colors
+- Enhanced logging functionality
+- Improved handling of connection interruptions
+
+### Fixed
+- Various stability improvements
+- Enhanced error handling for connection issues
+- Optimized file comparison logic
+
+## [0.1.3] - 2024-03-XX
+- Initial version with basic FTP functionality
+
+## [0.1.2] - 2024-02-21
+### Added
+- New offline functionality
+- Improved error logging
+- Automatic connection at startup (optional)
+
+### Improved
+- Better handling of FTP connections
+- Optimized file processing
+
+## [0.1.1] - 2024-02-20
+### Added
+- Initial public release
+- Basic FTP functionality
+- File upload and download
+- Directory display
 
 ## [0.1.0] - 2024-02-14
 ### Added

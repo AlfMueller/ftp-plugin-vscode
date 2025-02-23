@@ -1,16 +1,107 @@
-# Alfs FTP Plugin - VS Code FTP Extension
+# Alfs FTP Plugin for Visual Studio Code
 
-A user-friendly FTP plugin for Visual Studio Code that provides seamless FTP integration with visual feedback and automatic synchronization features.
+A powerful and user-friendly FTP plugin for Visual Studio Code with advanced features for file synchronization.
 
-![Screenshot](images/screenshot.png)
+## Main Features
 
-## Quick Start
-1. Install the extension
-2. Create `ftp-settings.json` in your project root
-3. Use keyboard shortcuts:
-   - `Ctrl+Alt+U` - Upload file
-   - `Ctrl+Alt+D` - Download file
-   - `Ctrl+Alt+C` - Configure settings
+- 🔒 **Advanced SSL/TLS Support**
+  - Configurable security settings
+  - Certificate validation options
+- 🌈 **Customizable User Interface**
+  - Configurable colors for different file states
+  - Selectable date formats (EU/US)
+  - Optional icon display
+- 🌍 **Multilingual Support**
+  - English and German available
+  - Easy language selection in settings
+- 🔄 **Intelligent Synchronization**
+  - Timestamp comparison for precise updates
+  - Visual highlighting of file differences
+- 🛠️ **Automatic Configuration Updates**
+  - Seamless update of existing settings
+  - Preservation of custom values
+
+## Installation
+
+1. Open Visual Studio Code
+2. Go to Extension Marketplace (Ctrl+Shift+X)
+3. Search for "Alfs FTP Plugin"
+4. Click Install
+
+## Configuration
+
+Create an `ftp-settings.json` file in your workspace with the following options:
+
+```json
+{
+  "host": "ftp.example.com",
+  "user": "username",
+  "password": "password",
+  "port": 21,
+  "secure": false,
+  "root": "/",
+  "name": "FTP Server",
+  "ignoreCertificateErrors": true,
+  "rejectUnauthorized": false,
+  "showFileActions": true,
+  "compareTimestamps": true,
+  "language": "en",
+  "ui": {
+    "newerLocalColor": "#0066cc",
+    "remoteOnlyColor": "#ff6b6b",
+    "showIcons": true,
+    "dateFormat": "EU"
+  }
+}
+```
+
+### Settings Explanation
+
+- **Basic Settings**
+  - `host`: FTP server address
+  - `user`: Username
+  - `password`: Password
+  - `port`: FTP port (default: 21)
+  - `secure`: Enable FTPS (true/false)
+  - `root`: Remote root directory
+
+- **Advanced Settings**
+  - `name`: Display name for the server
+  - `ignoreCertificateErrors`: Ignore SSL certificate errors
+  - `rejectUnauthorized`: SSL certificate validation
+  - `showFileActions`: Show file actions in UI
+  - `compareTimestamps`: Enable timestamp comparison
+
+- **UI Settings**
+  - `newerLocalColor`: Color for newer local files
+  - `remoteOnlyColor`: Color for remote-only files
+  - `showIcons`: Show icons in tree view
+  - `dateFormat`: Date format (EU/US)
+
+- **Language Settings**
+  - `language`: Language (en/de)
+
+## Usage
+
+1. Open the FTP Explorer in the sidebar
+2. Connect to the FTP server
+3. Navigate through the directory structure
+4. Use context menus for upload/download
+5. Observe changes through color highlighting
+
+## Keyboard Shortcuts
+
+- `Ctrl+Alt+U`: Upload file
+- `Ctrl+Alt+D`: Download file
+- `Ctrl+Alt+C`: Open settings
+
+## Support
+
+For questions or issues, please visit our [GitHub page](https://github.com/AlfMueller/ftp-plugin-vscode).
+
+## License
+
+MIT - see [LICENSE](LICENSE) for details.
 
 ## Key Features
 
@@ -42,7 +133,14 @@ A user-friendly FTP plugin for Visual Studio Code that provides seamless FTP int
 
 ## Getting Started
 
-1. Create an `ftp-settings.json` in your project root:
+1. Open the FTP Explorer view in the sidebar
+2. The extension will automatically detect that no configuration exists
+3. Click "Yes" when prompted to create a sample configuration
+4. The `ftp-settings.json` will be created and opened automatically
+5. Adjust the settings according to your FTP server:
+
+The generated configuration file will contain these default settings:
+
 ```json
 {
     "host": "ftp.example.com",
@@ -56,9 +154,12 @@ A user-friendly FTP plugin for Visual Studio Code that provides seamless FTP int
     "rejectUnauthorized": false,
     "showFileActions": true,
     "compareTimestamps": true,
+    "language": "en",
     "ui": {
         "newerLocalColor": "#0066cc",
-        "showIcons": true
+        "remoteOnlyColor": "#ff6b6b",
+        "showIcons": true,
+        "dateFormat": "EU"
     }
 }
 ```
@@ -72,27 +173,36 @@ A user-friendly FTP plugin for Visual Studio Code that provides seamless FTP int
 * `secure`: Use FTPS (default: false)
 * `root`: Root directory on server (default: "/")
 * `name`: Display name for the connection
-* `ignoreCertificateErrors`: Ignore SSL certificate errors
-* `rejectUnauthorized`: Reject unauthorized SSL certificates
-* `showFileActions`: Show upload/download icons
-* `compareTimestamps`: Enable timestamp comparison
-* `ui.newerLocalColor`: Color for newer local files
-* `ui.showIcons`: Show file type icons
+* `ignoreCertificateErrors`: Ignore SSL certificate errors (default: true)
+* `rejectUnauthorized`: Reject unauthorized SSL certificates (default: false)
+* `showFileActions`: Show upload/download icons in UI (default: true)
+* `compareTimestamps`: Enable timestamp comparison (default: true)
+* `language`: Interface language, "en" or "de" (default: "en")
+* `ui.newerLocalColor`: Color for newer local files (default: "#0066cc")
+* `ui.remoteOnlyColor`: Color for remote-only files (default: "#ff6b6b")
+* `ui.showIcons`: Show file type icons (default: true)
+* `ui.dateFormat`: Date format, "EU" or "US" (default: "EU")
 
 ### UI Customization
-Configure the visual appearance in ftp-settings.json:
-```json
-{
-    "ui": {
-        "newerLocalColor": "#0066cc",  // Color for files that need upload
-        "showIcons": true              // Show file type icons
-    }
-}
-```
+The extension provides several ways to customize the visual appearance:
 
-The colors are also customizable through VS Code's color customization:
-- `ftpExplorer.modifiedFile`: Color for files that are newer locally
-- `ftpExplorer.missingLocalFile`: Color for files that don't exist locally
+1. **Color Settings**
+   - `newerLocalColor`: Highlights files that are newer locally
+   - `remoteOnlyColor`: Highlights files that only exist on the server
+
+2. **Date Format**
+   - `EU`: DD.MM.YYYY HH:mm:ss
+   - `US`: MM/DD/YYYY HH:mm:ss AM/PM
+
+3. **Language**
+   - `en`: English interface
+   - `de`: German interface
+
+4. **Visual Indicators**
+   - File status colors
+   - File type icons
+   - Progress bars for operations
+   - Connection status indicators
 
 2. Open the FTP Explorer view in the sidebar
 3. Click the connect button or wait for auto-connect
@@ -135,26 +245,7 @@ Please report issues on our [GitHub repository](https://github.com/AlfMueller/ft
 
 ## Release Notes
 
-### 0.1.2
-- Fixed color status not updating in root directory
-- Improved file status synchronization
-- Better visual feedback
-
-### 0.1.1
-- Keyboard shortcuts (Ctrl+Alt+U/D/C)
-- Auto-actions configuration
-- Enhanced documentation
-- Improved security notes
-- Better troubleshooting guide
-
-### 0.1.0
-- Initial release
-- Basic FTP functionality
-- Visual file status indicators
-- Auto-connect feature
-- Timestamp synchronization
-- Debug view
-- Folder expansion toggle
+See our [CHANGELOG.md](CHANGELOG.md) for detailed release notes.
 
 ## Contributing
 

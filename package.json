@@ -1,8 +1,8 @@
 {
   "name": "alfsftpplugin",
   "displayName": "Alfs FTP Plugin",
-  "description": "A simple and efficient FTP plugin for Visual Studio Code",
-  "version": "0.1.3",
+  "description": "A powerful and user-friendly FTP plugin for Visual Studio Code with advanced features like SSL/TLS support, timestamp comparison, and customizable UI",
+  "version": "0.2.0",
   "publisher": "purecrea",
   "repository": {
     "type": "git",
@@ -76,11 +76,6 @@
         "icon": "$(output)"
       },
       {
-        "command": "alfsftpplugin.toggleCollapse",
-        "title": "FTP: Toggle Collapse/Expand",
-        "icon": "$(chevron-right)"
-      },
-      {
         "command": "ftpExplorer.downloadFile",
         "title": "Download",
         "icon": "$(cloud-download)"
@@ -89,6 +84,16 @@
         "command": "ftpExplorer.uploadFile",
         "title": "Upload",
         "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "ftpExplorer.deleteRemote",
+        "title": "Delete from Server",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "ftpExplorer.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -100,7 +105,12 @@
         },
         {
           "command": "ftpExplorer.uploadFile",
-          "when": "view == ftpExplorer && viewItem != remoteOnly",
+          "when": "view == ftpExplorer && viewItem != remoteOnly && viewItem != remoteDirectory",
+          "group": "inline"
+        },
+        {
+          "command": "ftpExplorer.deleteRemote",
+          "when": "view == ftpExplorer && (viewItem == remoteOnly || viewItem == remoteDirectory)",
           "group": "inline"
         }
       ],
@@ -121,7 +131,7 @@
           "group": "navigation@3"
         },
         {
-          "command": "alfsftpplugin.toggleCollapse",
+          "command": "ftpExplorer.refresh",
           "when": "view == ftpExplorer",
           "group": "navigation@4"
         }
@@ -140,6 +150,15 @@
       {
         "id": "ftpExplorer.missingLocalFile",
         "description": "Color for files that don't exist locally",
+        "defaults": {
+          "dark": "#ff8c00",
+          "light": "#ff8c00",
+          "highContrast": "#ff8c00"
+        }
+      },
+      {
+        "id": "ftpExplorer.remoteDirectory",
+        "description": "Color for directories that only exist on the remote server",
         "defaults": {
           "dark": "#ff8c00",
           "light": "#ff8c00",
